@@ -1,54 +1,57 @@
-import lime
-import torch
-import torch.nn.functional as F
-from lime.lime_text import LimeTextExplainer 
+import shap
+import torch 
+
 from transformers import BertForSequenceClassification, AutoModelForSequenceClassification, AutoTokenizer, AutoModel, DataCollatorWithPadding, DistilBertForSequenceClassification
+from collections import OrderedDict
+from bert_experiments import train, evaluate, train_and_eval_split
 
 from torch.utils.data import (
     Dataset,
     DataLoader,
 )
 
-from load_glue import load_glue_dataset
-from bert_experiments import train, evaluate, train_and_eval_split
-
-
-teacher_type = "bert-base-uncased"
-student_type = "distilbert-base-uncased"
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def eval_lime(teacher, student, tokenizer, dataset):
-    label_names = [0, 1]
+def eval_shap(teacher, student, tokenizer, texts):
+    bsize = 1
 
-    explainer_teacher = LimeTextExplainer(class_names=label_names)
-    explainer_student = LimeTextExplainer(class_names=label_names)
+    model = teacher 
+    def predict(x):
+        # TODO: need to set indices based off of positive or negative results
+        # print("x.toList(): ", x.tolist())
+        inputs = tokenizer(
+            x.tolist(),
+            return_tensors="pt",
+            truncation=True,
+            padding=True,
+        ).to(device)
 
-    def teacher_predictor(texts):
-        inputs = tokenizer(texts, return_tensors="pt", truncation=True, padding=True).to(device)
-        outputs = teacher(**inputs)
-        predictions = F.softmax(outputs.logits).cpu().detach().numpy()
-        return predictions
+        if model.base_model_prefix != "bert":
+            inputs.pop("token_type_ids")
+        outputs = model(**inputs)
+        logits = outputs["logits"]
+        logits = logits[:, 1]
+        return logits
 
-    def student_predictor(texts):
-        inputs = tokenizer(texts, return_tensors="pt", truncation=True, padding=True).to(device)
-        inputs.pop("token_type_ids")
-        outputs = student(**inputs)
-        predictions = F.softmax(outputs.logits).cpu().detach().numpy()
-        return predictions        
+    sorted_dict = OrderedDict()
+    explainer = shap.Explainer(predict, tokenizer)
+    cur_start = 0
+    while cur_start < len(texts):
 
-    for i, t in enumerate(dataset):
-        str_to_predict = t["sentence"]
-        exp_teacher = explainer_teacher.explain_instance(str_to_predict, teacher_predictor, num_features=20, num_samples=500)
-        # exp_teacher.save_to_file(f"example-{i}-teacher.html") 
-        teacher_list = exp_teacher.as_list()
-        exp_student = explainer_student.explain_instance(str_to_predict, student_predictor, num_features=20, num_samples=500)
-        # exp_student.save_to_file(f"example-{i}-student.html") 
-        student_list = exp_student.as_list()
+        texts_ = texts[cur_start:cur_start + bsize]
+        # print("sentence: ", texts_[0], "model index: ", text_to_model[texts_[0]])
+        shap_values = explainer(texts_)
+        model = student 
 
-        print(teacher_list, student_list)
-        input()   
+        shap_values = explainer(texts_)
+        model = teacher
+        # shap_text = get_text(shap_values)
+
+        # for t in shap_text:
+        #     sorted_dict[t] = shap_text[t]["span"]
+        cur_start += bsize
+
+    return sorted_dict
 
 def main(student_type, teacher_type="bert-base-uncased",task="sst2", teacher_path=None, student_path=None):
     task = "sst2"
@@ -63,6 +66,7 @@ def main(student_type, teacher_type="bert-base-uncased",task="sst2", teacher_pat
         student = AutoModelForSequenceClassification.from_pretrained(student_path, num_labels=num_labels)
     else:
         student = AutoModelForSequenceClassification.from_pretrained(student_type, num_labels=num_labels)
+    # print(teacher.base_model_prefix)
 
     # teacher = BertForSequenceClassification.from_pretrained(teacher_type, num_labels=num_labels)
     # student = DistilBertForSequenceClassification.from_pretrained(student_type, num_labels=num_labels)
@@ -84,11 +88,8 @@ def main(student_type, teacher_type="bert-base-uncased",task="sst2", teacher_pat
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
 
     # student = train(student, train_dataloader)
-    eval_lime(teacher, student, tokenizer, val_raw_dataset)
-
-    
+    eval_shap(teacher, student, tokenizer, val_raw_dataset["sentence"])
+    # eval_shap(teacher, student, tokenizer, val_raw_dataset)
 
 if __name__ == "__main__":
-    main(student_type="distilbert-base-uncased")
-    
-
+    main("distilbert-base-uncased")

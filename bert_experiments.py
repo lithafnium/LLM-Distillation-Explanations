@@ -90,11 +90,12 @@ def evaluate(model, dataloader, task):
 
     print(task, metric.compute())
 
-    
-def tokenization(tokenzier, example):
-    return tokenzier(example["text"], 
-            truncation=True,
-            padding=True)
+def train_and_eval_split(tokenizer, task,  student=False):
+    train_dataset, val_dataset, _, train_raw_dataset, val_raw_dataset, _ = load_glue_dataset(tokenizer, task)
+    train_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
+    val_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
+
+    return train_dataset, val_dataset, val_raw_dataset
 
 def main():
     parser = argparse.ArgumentParser(description="Training/Eval for GLUE datasets")
@@ -111,15 +112,9 @@ def main():
     
     model.to(device)
     tokenizer = AutoTokenizer.from_pretrained(teacher)
-    train_dataset, val_dataset, _ = load_glue_dataset(tokenizer, task)
-
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-    train_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
-    train_dataset = train_dataset.remove_columns(["token_type_ids"])
 
-    val_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
-    val_dataset = val_dataset.remove_columns(["token_type_ids"])
-    print(train_dataset, val_dataset)
+    train_dataset, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, task)
 
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
     val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
