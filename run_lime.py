@@ -1,5 +1,7 @@
 import lime
 import torch
+import argparse
+
 import torch.nn.functional as F
 from lime.lime_text import LimeTextExplainer 
 from transformers import BertForSequenceClassification, AutoModelForSequenceClassification, AutoTokenizer, AutoModel, DataCollatorWithPadding, DistilBertForSequenceClassification
@@ -10,7 +12,9 @@ from torch.utils.data import (
 )
 
 from load_glue import load_glue_dataset
-from bert_experiments import train, evaluate, train_and_eval_split
+
+from train_and_eval import Trainer
+
 
 
 teacher_type = "bert-base-uncased"
@@ -50,41 +54,33 @@ def eval_lime(teacher, student, tokenizer, dataset):
         print(teacher_list, student_list)
         input()   
 
-def main(student_type, teacher_type="bert-base-uncased",task="sst2", teacher_path=None, student_path=None):
-    task = "sst2"
-    
-    train_dataset, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, task)
-    tokenizer = AutoTokenizer.from_pretrained(teacher_type)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-
-    num_labels = 3 if task.startswith("mnli") else 1 if task=="stsb" else 2
-    if teacher_path:
-        teacher = AutoModelForSequenceClassification.from_pretrained(teacher_path, num_labels=num_labels)
-        teacher.to(device)
-    else: 
-        teacher = AutoModelForSequenceClassification.from_pretrained(teacher_type, num_labels=num_labels) 
-        teacher.to(device)
-
-        train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
-        val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
-        teacher = train(teacher, train_dataloader)
-    if student_path: 
-        student = AutoModelForSequenceClassification.from_pretrained(student_path, num_labels=num_labels)
-        student.to(device)
-    else:
-        student = AutoModelForSequenceClassification.from_pretrained(student_type, num_labels=num_labels)
-        student.to(device)
-
-        train_dataset = train_dataset.remove_columns(["token_type_ids"])
-        train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
-        student = train(student, train_dataloader)
-
-    eval_lime(teacher, student, tokenizer, val_raw_dataset["sentence"])
     # eval_shap(teacher, student, tokenizer, val_raw_dataset)
 
-    
-
 if __name__ == "__main__":
-    main(student_type="distilbert-base-uncased")
+    parser = argparse.ArgumentParser(description="Lime Evaluation")
+
+    parser.add_argument("--student", "-s", type=str, default="distilbert-base-uncased")
+    parser.add_argument("--teacher", "-t", type=str, default="bert-base-uncased")
+    parser.add_argument("--train_teacher", "-tt", action="store_true")
+    parser.add_argument("--train_student", "-ts", action="store_true")
+    parser.add_argument("--task", type=str, default="sst2")
+
+    args = parser.parse_args() 
+
+    t = Trainer(
+        lr=5e-5, 
+        batch_size=4,
+        epochs=3,
+        teacher_type=args.teacher,
+        student_type=args.student,
+        train_teacher=args.train_teacher,
+        train_student=args.train_student,
+        task=args.task
+    )
+
+    print(t)
+
+    teacher, student = t.train_and_eval()
+
     
 

@@ -110,6 +110,13 @@ def load_glue_dataset(tokenizer, dataset_name, return_raw=False):
     print(f"finished tokenizing!")
     return train, val, test, dataset["train"], dataset["validation"], dataset["test"]
 
+def train_and_eval_split(tokenizer, task, student=False):
+    train_dataset, val_dataset, _, train_raw_dataset, val_raw_dataset, _ = load_glue_dataset(tokenizer, task)
+    train_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
+    val_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
+
+    return train_dataset, val_dataset, val_raw_dataset
+
 def main():
     print("loading mrpc....")
     dataset = load_dataset("glue", "mrpc")
