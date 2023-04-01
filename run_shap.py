@@ -33,25 +33,27 @@ def eval_shap(teacher, student, tokenizer, texts):
         logits = logits[:, 1]
         return logits
 
-    sorted_dict = OrderedDict()
     explainer = shap.Explainer(predict, tokenizer)
     cur_start = 0
+    out = []
     while cur_start < len(texts):
-
+        output_dict = {}
         texts_ = texts[cur_start:cur_start + bsize]
         # print("sentence: ", texts_[0], "model index: ", text_to_model[texts_[0]])
         shap_values = explainer(texts_)
         model = student 
+        output_dict["student_vals"] = shap_values.values
 
         shap_values = explainer(texts_)
         model = teacher
-        # shap_text = get_text(shap_values)
+        output_dict["teacher_vals"] = shap_values.values
+        output_dict["text"] = texts_
 
-        # for t in shap_text:
-        #     sorted_dict[t] = shap_text[t]["span"]
+        out.append(output_dict)
+
         cur_start += bsize
 
-    return sorted_dict
+    return out
 
 def main(student_type, teacher_type="bert-base-uncased",task="sst2", teacher_path=None, student_path=None):
     task = "sst2"

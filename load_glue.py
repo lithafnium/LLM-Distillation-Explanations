@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer
-from datasets import load_dataset
+from datasets import load_dataset, disable_caching
 
+disable_caching()
 # GLUE_CONFIGS = ['cola', 'sst2', 'mrpc', 'qqp', 'stsb', 'mnli', 'mnli_mismatched', 'mnli_matched', 'qnli', 'rte', 'wnli', 'ax']
 
 GLUE_CONFIGS = {
@@ -92,7 +93,7 @@ def tokenize(tokenizer, dataset, col):
 
 def load_glue_dataset(tokenizer, dataset_name, return_raw=False):
     print(f"loading {dataset_name} from GLUE...")
-    dataset = load_dataset("glue", dataset_name)
+    dataset = load_dataset("glue", dataset_name, cache_dir="./cachedir")
 
     print(f"loaded {dataset_name}")
     if return_raw:
@@ -110,14 +111,15 @@ def load_glue_dataset(tokenizer, dataset_name, return_raw=False):
     return train, val, test, dataset["train"], dataset["validation"], dataset["test"]
 
 def main():
-    dataset = load_dataset("glue", "qqp")
-    config = GLUE_CONFIGS["qqp"]
+    print("loading mrpc....")
+    dataset = load_dataset("glue", "mrpc")
+    # config = GLUE_CONFIGS["qqp"]
 
-    print(dataset)
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    # print(dataset)
+    # tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-    train, val, test = tokenize_pair(tokenizer, dataset, **config)
-    print(train, val, test)
+    # train, val, test = tokenize_pair(tokenizer, dataset, **config)
+    # print(train, val, test)
   
 
 if __name__ == "__main__":
