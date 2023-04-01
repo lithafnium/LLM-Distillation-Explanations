@@ -78,9 +78,11 @@ if __name__ == "__main__":
         task=args.task
     )
 
-    print(t)
-
     teacher, student = t.train_and_eval()
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    train_dataset, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, self.task)
+
+
 
     
 
