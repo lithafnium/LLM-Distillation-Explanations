@@ -52,39 +52,35 @@ def eval_lime(teacher, student, tokenizer, dataset):
 
 def main(student_type, teacher_type="bert-base-uncased",task="sst2", teacher_path=None, student_path=None):
     task = "sst2"
+    
+    train_dataset, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, task)
+    tokenizer = AutoTokenizer.from_pretrained(teacher_type)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     num_labels = 3 if task.startswith("mnli") else 1 if task=="stsb" else 2
     if teacher_path:
         teacher = AutoModelForSequenceClassification.from_pretrained(teacher_path, num_labels=num_labels)
+        teacher.to(device)
     else: 
         teacher = AutoModelForSequenceClassification.from_pretrained(teacher_type, num_labels=num_labels) 
-    
+        teacher.to(device)
+
+        train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
+        val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
+        teacher = train(teacher, train_dataloader)
     if student_path: 
         student = AutoModelForSequenceClassification.from_pretrained(student_path, num_labels=num_labels)
+        student.to(device)
     else:
         student = AutoModelForSequenceClassification.from_pretrained(student_type, num_labels=num_labels)
+        student.to(device)
 
-    # teacher = BertForSequenceClassification.from_pretrained(teacher_type, num_labels=num_labels)
-    # student = DistilBertForSequenceClassification.from_pretrained(student_type, num_labels=num_labels)
-    tokenizer = AutoTokenizer.from_pretrained(teacher_type)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+        train_dataset = train_dataset.remove_columns(["token_type_ids"])
+        train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
+        student = train(student, train_dataloader)
 
-    teacher.to(device)
-    student.to(device)
-
-    train_dataset, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, task)
-    # train teacher
-    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
-    val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
-
-    # teacher = train(teacher, train_dataloader)
-    
-    # train student 
-    train_dataset = train_dataset.remove_columns(["token_type_ids"])
-    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
-
-    # student = train(student, train_dataloader)
-    eval_lime(teacher, student, tokenizer, val_raw_dataset)
+    eval_lime(teacher, student, tokenizer, val_raw_dataset["sentence"])
+    # eval_shap(teacher, student, tokenizer, val_raw_dataset)
 
     
 
