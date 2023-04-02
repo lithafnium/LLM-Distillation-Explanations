@@ -173,7 +173,7 @@ def main():
                 model_type = match_teacher.group(1)
             else:
                 model_type = match_student.group(1)
-            num_labels = 3 if self.task.startswith("mnli") else 1 if self.task=="stsb" else 2
+            num_labels = 3 if args.task.startswith("mnli") else 1 if args.task=="stsb" else 2
             model = AutoModelForSequenceClassification.from_pretrained(model_type, num_labels=num_labels)
             model.load_state_dict(torch.load(args.model_path))
             print(f"model loaded")
