@@ -141,6 +141,9 @@ def robust_evaluate(model, dataloader, tokenizer, task, times=10):
 def main():
     parser = argparse.ArgumentParser(description="Robustness evaluation for GLUE datasets")
     parser.add_argument("--model_path", type=str, help="Path to model to be evaluated")
+    parser.add_argument("--is_teacher", action="store_true", help="Whether the loaded model is a teacher model")
+    parser.add_argument("--student", "-s", type=str, default="distilbert-base-uncased")
+    parser.add_argument("--teacher", "-t", type=str, default="bert-base-uncased")
     parser.add_argument("--task", "-t", default=None, type=str, help="GLUE task")
     parser.add_argument("--debug", action="store_true", help="Use validation subset and untrained model for debugging with faster speed")
     parser.add_argument("--perturb_times", default=10, type=int, help="Number of times to perturb an instance to check robustness")
@@ -164,14 +167,16 @@ def main():
         model_type = "distilbert_untrained"
     else:
         try:
-            model = torch.load(args.model_path)
-            print(f"model loaded")
             match_teacher = re.search(r"teacher_(.+)_", args.model_path)
             match_student = re.search(r"student_(.+)_", args.model_path)
             if match_teacher:
                 model_type = match_teacher.group(1)
             else:
                 model_type = match_student.group(1)
+            num_labels = 3 if self.task.startswith("mnli") else 1 if self.task=="stsb" else 2
+            model = AutoModelForSequenceClassification.from_pretrained(model_type, num_labels=num_labels)
+            model.load_state_dict(torch.load(args.model_path))
+            print(f"model loaded")
         except FileNotFoundError as e1:
             print(f"error: {e1}")
         except RuntimeError as e2:
