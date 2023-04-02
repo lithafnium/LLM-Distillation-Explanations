@@ -142,7 +142,7 @@ def main():
     parser = argparse.ArgumentParser(description="Robustness evaluation for GLUE datasets")
     parser.add_argument("--model_path", type=str, help="Path to model to be evaluated")
     parser.add_argument("--task", "-t", default=None, type=str, help="GLUE task")
-    parser.add_argument("--debug", default=False, type=bool, help="Use validation subset and untrained model for debugging with faster speed")
+    parser.add_argument("--debug", action="store_true", help="Use validation subset and untrained model for debugging with faster speed")
     parser.add_argument("--perturb_times", default=10, type=int, help="Number of times to perturb an instance to check robustness")
     
     args = parser.parse_args()
@@ -207,6 +207,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # command line for debugging: python robustness.py --debug True
+    # command line for debugging: python robustness.py --debug
     # otherwise: python robustness.py --model_path <model path>
     main()
