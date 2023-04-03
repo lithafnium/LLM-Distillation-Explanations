@@ -212,6 +212,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # command line for debugging: python robustness.py --debug
-    # otherwise: python robustness.py --model_path <model path>
+    # command line for debugging: python model_robustness.py --debug
+    # otherwise: python model_robustness.py --model_path <model path>
     main()
