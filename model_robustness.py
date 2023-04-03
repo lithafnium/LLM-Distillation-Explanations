@@ -79,7 +79,7 @@ def eval_results_with_augmentation(model, dataloader, tokenizer, augmenter, metr
     return charsub_scores_i
         
 
-def robust_evaluate(model, dataloader, tokenizer, task, times=10):
+def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     '''
     evaluate model performance in terms of metrics,
     as well as robustness as model performance when input gets perturbed
@@ -200,7 +200,7 @@ def main():
     print(f"Validation Data Size: {len(val_dataset)}")
     val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
 
-    charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores = robust_evaluate(model, val_dataloader, tokenizer, args.task, times=args.perturb_times)
+    charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores = robust_eval_model(model, val_dataloader, tokenizer, args.task, times=args.perturb_times)
     
     if not os.path.exists(f"model_robustness_results"):
         os.makedirs(f"model_robustness_results")
