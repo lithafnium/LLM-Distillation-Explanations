@@ -103,7 +103,7 @@ class Trainer:
         num_labels = 3 if self.task.startswith("mnli") else 1 if self.task=="stsb" else 2
 
 
-        teacher = AutoModelForSequenceClassification.from_pretrained(teacher_type, num_labels=num_labels) 
+        teacher = AutoModelForSequenceClassification.from_pretrained(self.teacher_type, num_labels=num_labels) 
         teacher.to(device)
 
         train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=self.batch_size, collate_fn=data_collator)
@@ -113,7 +113,7 @@ class Trainer:
             print("training teacher...")
             teacher = self.train(teacher, train_dataloader, save_path=f"teacher_{self.teacher_type}_{self.task}.pt")
 
-        student = AutoModelForSequenceClassification.from_pretrained(student_type, num_labels=num_labels)
+        student = AutoModelForSequenceClassification.from_pretrained(self.student_type, num_labels=num_labels)
         student.to(device)
 
         train_dataset = train_dataset.remove_columns(["token_type_ids"])
