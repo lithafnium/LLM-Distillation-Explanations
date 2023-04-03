@@ -153,8 +153,7 @@ def main():
     if not os.path.exists(f"explanation_results/{model_type}"):
         os.makedirs(f"explanation_results/{model_type}")
     
-    val_raw_dataset = val_raw_dataset[:4]
-    val_raw_dataset = [{key: value[i] for key, value in val_raw_dataset.items()} for i in range(len(val_raw_dataset["sentence"]))]
+
     if args.exp_type == "all" or args.exp_type == "shap":
         shap_results = run_shap(model, tokenizer, val_raw_dataset, args)
         with open(f'explanation_results/{model_type}/{model_type}_{args.task}_shap.json', 'w') as file1:
