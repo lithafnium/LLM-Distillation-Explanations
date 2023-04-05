@@ -30,14 +30,15 @@ import argparse
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def exp_with_ptbn(model, dataloader, tokenizer, augmenter, args)
+def exp_with_ptbn(model, dataloader, tokenizer, augmenter, args):
     '''record multiple explanation results given one-type-multiple-times perturbation'''
     res = defaultdict(defaultdict)
+    bsize = 4
     # {"lime": {idx_times: (dict with perturbed texts, tokens, attributions, ground truth labels)},
     #  "shap": {idx_times: (dict with perturbed texts, tokens, attributions, ground truth labels)}},
     
     for i in range(args.perturb_times):
-        texts = []
+        texts, labels = [], []
         for n, inputs in enumerate(tqdm(dataloader)):
             inputs = {k: v.to(device) for k, v in inputs.items()}
             # perturb inputs
@@ -45,21 +46,24 @@ def exp_with_ptbn(model, dataloader, tokenizer, augmenter, args)
             for j in range(bsize):
                 sentence = tokenizer.decode(augmented_inputs["input_ids"][j], skip_special_tokens=True)
                 texts.append(sentence)
+                labels.append(inputs["labels"][j].item())
         perturbed_dataset = {"sentence": texts, "label": labels}
         if args.exp_type == "all" or args.exp_type == "shap":
             shap_results_i = run_shap(model, tokenizer, perturbed_dataset, args)
-            res["lime"][i] = shap_results_i
+            res["shap"][i] = shap_results_i
         if args.exp_type == "all" or args.exp_type == "lime":
+            if args.debug:
+                perturbed_dataset = [{key: value[i] for key, value in perturbed_dataset.items()} for i in range(len(perturbed_dataset["sentence"]))]
             lime_results_i = run_lime(model, tokenizer, perturbed_dataset, args)
-            res["shap"][i] = lime_results_i
+            res["lime"][i] = lime_results_i
             
     return res
     
 
-def robust_eval_exp_raw(model, dataloader, tokenizer, task, args):
+def robust_eval_exp_raw(model, dataloader, tokenizer, args):
     model.eval()
     bsize = 4
-    res = dafaultdict(dict)
+    res = defaultdict(defaultdict)
     # {"charsub": ..., "wordswap": ..., "wordsub": ..., "wordsynn": ...}
     # each ... being
     # {"lime": {idx_times: (dict with perturbed texts, tokens, attributions, ground truth labels)},
@@ -97,8 +101,9 @@ def main():
     parser.add_argument("--perturb_times", default=10, type=int, help="Number of times to perturb an instance to check robustness")
     parser.add_argument("--debug", action="store_true", help="Use validation subset and untrained model for debugging with faster speed")
     
-    
     args = parser.parse_args()
+    if args.debug:
+        args.perturb_times = 2
     try:
         match = re.search(r"_([a-zA-Z0-9]+)\.pt", args.model_path)
         args.task = match.group(1) if match else args.task
@@ -152,7 +157,8 @@ def main():
     if not os.path.exists(f"explanation_robustness_results/{model_type}"):
         os.makedirs(f"explanation_robustness_results/{model_type}")
         
-    exps_with_perturbations = robust_eval_exp_raw(model, val_dataloader, tokenizer, task, args)
+    exps_with_perturbations = robust_eval_exp_raw(model, val_dataloader, tokenizer, args)
+    print(exps_with_perturbations)
     with open(f'explanation_robustness_results/{model_type}/{model_type}_{args.task}.json', 'w') as file:
             json.dump(exps_with_perturbations, file)
             
