@@ -1,4 +1,5 @@
 import argparse
+import json
 
 import torch
 import torch.nn as nn
@@ -72,7 +73,7 @@ def compute_attributions(model, model_ig, tokenizer, text):
     # print('attributions: ', attributions)
     # print('pred: ', pred_label_idx, '(', '%.2f' % pred_score, ')')
 
-    return attributions
+    return attributions, pred_label_idx
 
 
 def eval_attributions(teacher, student, tokenizer, dataset, student_name):
@@ -82,21 +83,27 @@ def eval_attributions(teacher, student, tokenizer, dataset, student_name):
     student_wrapper = ModelWrapper(student)
     student_ig = LayerIntegratedGradients(
         student_wrapper, getattr(student, STUDENT_MODEL_TO_LAYERS[student_name]).embeddings.word_embeddings)
-    
-    attributions = []
 
-    for _, sentence in enumerate(tqdm(dataset["sentence"])):
-        teacher_attribution = compute_attributions(
+    attributions = {}
+
+    for i, sentence in enumerate(tqdm(dataset["sentence"])):
+        teacher_attribution, teacher_label = compute_attributions(
             teacher_wrapper, teacher_ig, tokenizer, sentence)
-        student_attribution = compute_attributions(
+        student_attribution, student_label = compute_attributions(
             student_wrapper, student_ig, tokenizer, sentence)
-        
-        cos = nn.CosineSimilarity(dim=0)
 
-        attributions.append(cos(teacher_attribution, student_attribution).item())
-        
+        attributions[i] = {'sentence': sentence,
+                           'teacher_attribution': teacher_attribution,
+                           'student_attribution': student_attribution,
+                           'teacher_label': teacher_label,
+                           'student_label': student_label}
+
+        # cos = nn.CosineSimilarity(dim=0)
+
+        # attributions.append(cos(teacher_attribution, student_attribution).item())
+
     # TODO return something of use
-    return sum(attributions) / len(attributions)
+    return attributions
 
 
 if __name__ == "__main__":
@@ -116,7 +123,7 @@ if __name__ == "__main__":
     assert task in GLUE_CONFIGS
 
     t = Trainer(
-        lr=5e-5, 
+        lr=5e-5,
         batch_size=4,
         epochs=3,
         teacher_type=args.teacher,
@@ -140,4 +147,7 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(
         val_dataset, batch_size=4, collate_fn=data_collator)
 
-    eval_attributions(teacher, student, tokenizer, val_raw_dataset, args.student)
+    attributions = eval_attributions(
+        teacher, student, tokenizer, val_raw_dataset, args.student)
+    with open(f'explanation_results/{model_type}/{model_type}_{args.task}_lime.json', 'w') as file2:
+        json.dump(attributions, file2)
