@@ -24,7 +24,7 @@ from tqdm import tqdm, trange
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def predict_func(model, tokenizer):
+def predict_func(model, tokenizer, task):
     def predict(x):
         inputs = tokenizer(
             x.tolist(),
@@ -37,15 +37,19 @@ def predict_func(model, tokenizer):
             inputs.pop("token_type_ids")
         outputs = model(**inputs)
         logits = outputs["logits"]
-        logits = logits[:, 1]
+
+        if task == "stsb":
+            logits = logits[:, 0]
+        else: 
+            logits = logits[:, 1]
         return logits
         
     return predict
         
 
-def run_shap(model, tokenizer, dataset, args):
+def run_shap(model, tokenizer, dataset, task, args):
     shap_results = {}  # {idx: {'sentence': ..., 'tokens': ..., 'attributions': ..., 'base_value': ...}}
-    predict_ = predict_func(model, tokenizer)
+    predict_ = predict_func(model, tokenizer, task)
     explainer = shap.Explainer(predict_, tokenizer)
     texts, labels = dataset["sentence"], dataset["label"]
     
@@ -127,6 +131,10 @@ def main():
                 model_type = match_student.group(1)
                 args.is_teacher = False
             num_labels = 3 if args.task.startswith("mnli") else 1 if args.task=="stsb" else 2
+            if model_type == "huawei-noah-TinyBERT_General_4L_312D":
+                model_type = "huawei-noah/TinyBERT_General_4L_312D"
+            if model_type == "google-mobilebert-uncased":
+                model_type = "google/mobilebert-uncased"
             model = AutoModelForSequenceClassification.from_pretrained(model_type, num_labels=num_labels)
             model.load_state_dict(torch.load(args.model_path))
             print(f"model loaded")
@@ -166,15 +174,16 @@ def main():
         val_raw_dataset = val_raw_dataset[:4]
     print(f"Validation Data Size: {len(val_dataset)}")
     val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
-    
+
+    model_type = model_type.replace("/", "-")
+
     if not os.path.exists(f"explanation_results"):
         os.makedirs(f"explanation_results")
     if not os.path.exists(f"explanation_results/{model_type}"):
         os.makedirs(f"explanation_results/{model_type}")
     
-
     if args.exp_type == "all" or args.exp_type == "shap":
-        shap_results = run_shap(model, tokenizer, val_raw_dataset, args)
+        shap_results = run_shap(model, tokenizer, val_raw_dataset, args.task, args)
         with open(f'explanation_results/{model_type}/{model_type}_{args.task}_shap.json', 'w') as file1:
             json.dump(shap_results, file1)
     if args.exp_type == "all" or args.exp_type == "lime":
