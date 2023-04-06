@@ -18,6 +18,8 @@ from lime.lime_text import LimeTextExplainer
 
 from load_glue import *
 from train_and_eval import Trainer
+from tqdm import tqdm, trange
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -49,9 +51,10 @@ def run_shap(model, tokenizer, dataset, args):
     
     bsize = 1
     cur_start = 0
+    pbar = tqdm(desc="shap texts", total=len(texts))
     while cur_start < len(texts):
         texts_ = texts[cur_start:cur_start + bsize]
-        print(texts_)
+        # print(texts_)
         labels_ = labels[cur_start:cur_start + bsize]
         shap_results_i = explainer(texts_)
         for j in range(bsize):
@@ -60,6 +63,8 @@ def run_shap(model, tokenizer, dataset, args):
                                  'attributions': shap_results_i.values[j].tolist(),
                                  'label': labels_[j],
                                  'base_value': shap_results_i.base_values[j]}
+        
+        pbar.update(bsize)
         # move to the next batch of texts
         cur_start += bsize
 
@@ -137,6 +142,20 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     print(f"loading validation data for task {args.task}")
     _, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, args.task)
+
+    def concat(e, p1, p2):
+        e["sentence"] = e[p1] + " " + e[p2]
+        return e
+
+    if args.task == "ax": 
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "premise", "hypothesis"))
+    elif args.task == "qnli":
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "question", "sentence"))
+    elif args.task == "qqp":
+        val_raw_dataset = val_raw_dataset.map(lambda e: conat(e, "question1", "question2"))
+    elif args.task not in ["cola", "sst2"]:
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "sentence1", "sentence2"))
+
 
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     val_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])

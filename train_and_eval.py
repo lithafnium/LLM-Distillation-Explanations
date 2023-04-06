@@ -47,7 +47,7 @@ class Trainer:
 
     def train(self, model, dataloader, save_path="model.pt"):
         num_training_steps = NUM_EPOCHS * len(dataloader)
-        optimizer = AdamW(model.parameters(), lr=5e-5)
+        optimizer = AdamW(model.parameters(), lr=self.lr)
 
         lr_scheduler = get_scheduler(
             "linear",
@@ -55,7 +55,6 @@ class Trainer:
             num_warmup_steps=0,
             num_training_steps=num_training_steps,
         )
-        print("traiing")
         model.train()
         for step in trange(self.epochs):
             for n, inputs in enumerate(tqdm(dataloader)):
@@ -83,7 +82,7 @@ class Trainer:
                 outputs = model(**inputs)
             
             logits = outputs.logits
-            if glue_type != "stsb":
+            if task != "stsb":
                 predictions = torch.argmax(logits, dim=-1)
             else:
                 predictions = logits[:, 0]
@@ -102,7 +101,10 @@ class Trainer:
 
         num_labels = 3 if self.task.startswith("mnli") else 1 if self.task=="stsb" else 2
 
-
+        # model_type = AutoModelForSequenceClassification
+        # if self.task == "stsb":
+        #     model_type = AutoModel
+        print("loading teacher type", self.teacher_type)
         teacher = AutoModelForSequenceClassification.from_pretrained(self.teacher_type, num_labels=num_labels) 
         teacher.to(device)
 
@@ -111,8 +113,10 @@ class Trainer:
 
         if self.train_teacher:
             print("training teacher...")
-            teacher = self.train(teacher, train_dataloader, save_path=f"teacher_{self.teacher_type}_{self.task}.pt")
+            teacher_name = self.teacher_type.replace("/", "-")
+            teacher = self.train(teacher, train_dataloader, save_path=f"models/teacher_{teacher_name}_{self.task}.pt")
 
+        print("loading student type", self.student_type)
         student = AutoModelForSequenceClassification.from_pretrained(self.student_type, num_labels=num_labels)
         student.to(device)
 
@@ -121,9 +125,13 @@ class Trainer:
         
         if self.train_student:
             print("training student...")
-            student = self.train(student, train_dataloader, save_path=f"student_{self.student_type}_{self.task}.pt")
+            student_name = self.student_type.replace("/", "-")
+            student = self.train(student, train_dataloader, save_path=f"models/student_{student_name}_{self.task}.pt")
 
         self.evaluate(teacher, val_dataloader, self.task)
+
+        val_dataset = val_dataset.remove_columns(["token_type_ids"])
+        val_dataloader = DataLoader(val_dataset, batch_size=self.batch_size, collate_fn=data_collator)
         self.evaluate(student, val_dataloader, self.task)
 
         return teacher, student
