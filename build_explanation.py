@@ -76,7 +76,7 @@ def run_shap(model, tokenizer, dataset, task, args):
     
     
 def run_lime(model, tokenizer, dataset, args):
-    label_names = [0, 1]
+    label_names = [0, 1]  # if args.task != "stsb" else [0]
     explainer = LimeTextExplainer(class_names=label_names)
     
     def predictor(texts):
@@ -91,9 +91,12 @@ def run_lime(model, tokenizer, dataset, args):
     for i, t in enumerate(dataset):
         str_to_predict = t["sentence"]
         exp_ = explainer.explain_instance(str_to_predict, predictor, num_features=20, num_samples=500).as_list()
+        # lime_results[i] = {'sentence': str_to_predict,
+        #             'tokens': [tp[0] for tp in exp_],
+        #             'attributions': [tp[1] for tp in exp_],
+        #             'label': t["label"]}
         lime_results[i] = {'sentence': str_to_predict,
-                    'tokens': [tp[0] for tp in exp_],
-                    'attributions': [tp[1] for tp in exp_],
+                    'tokens_attributions': {tp[0]: tp[1] for tp in exp_},
                     'label': t["label"]}
     
     return lime_results
@@ -160,7 +163,7 @@ def main():
     elif args.task == "qnli":
         val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "question", "sentence"))
     elif args.task == "qqp":
-        val_raw_dataset = val_raw_dataset.map(lambda e: conat(e, "question1", "question2"))
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "question1", "question2"))
     elif args.task not in ["cola", "sst2"]:
         val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "sentence1", "sentence2"))
 
@@ -173,7 +176,8 @@ def main():
         val_dataset = torch.utils.data.Subset(val_dataset, range(4))
         val_raw_dataset = val_raw_dataset[:4]
     print(f"Validation Data Size: {len(val_dataset)}")
-    val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
+    BATCH_SIZE = 4 if args.task!="rte" and args.task!="qnli" else 2
+    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, collate_fn=data_collator)
 
     model_type = model_type.replace("/", "-")
 
