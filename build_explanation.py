@@ -17,6 +17,7 @@ from load_glue import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+lsm = torch.nn.LogSoftmax(dim=-1)
 
 def predict_func(model, tokenizer, task):
     def predict(x):
@@ -30,7 +31,7 @@ def predict_func(model, tokenizer, task):
         if model.base_model_prefix != "bert":
             inputs.pop("token_type_ids")
         outputs = model(**inputs)
-        logits = outputs["logits"]
+        logits = lsm(outputs["logits"])
 
         if task == "stsb":
             logits = logits[:, 0]
@@ -70,8 +71,15 @@ def run_shap(model, tokenizer, dataset, task, args):
     return shap_results
 
 
-def run_lime(model, tokenizer, dataset, args):
-    label_names = [0, 1]  # if args.task != "stsb" else [0]
+def run_lime(model, tokenizer, dataset, task, args):
+    if task == "stsb":
+        label_names = [0]
+        labels = (0,)
+        label = 0
+    else:
+        label_names = [0, 1]
+        labels = (1,)
+        label = 1
     explainer = LimeTextExplainer(class_names=label_names)
 
     def predictor(texts):
@@ -80,21 +88,20 @@ def run_lime(model, tokenizer, dataset, args):
         if not args.is_teacher:
             inputs.pop("token_type_ids")
         outputs = model(**inputs)
-        predictions = F.softmax(outputs.logits).cpu().detach().numpy()
-        return predictions
+
+        logits = lsm(outputs["logits"].detach().cpu()).numpy()
+
+        return logits
 
     lime_results = {}
-    for i, t in enumerate(dataset):
+    for i, t in enumerate(tqdm(dataset)):
         str_to_predict = t["sentence"]
-        exp_ = explainer.explain_instance(str_to_predict, predictor, num_features=20, num_samples=500).as_list()
-        # lime_results[i] = {'sentence': str_to_predict,
-        #             'tokens': [tp[0] for tp in exp_],
-        #             'attributions': [tp[1] for tp in exp_],
-        #             'label': t["label"]}
+        exp_ = explainer.explain_instance(
+            str_to_predict, predictor, num_features=20, num_samples=100, labels=labels).as_list(label=label)
         lime_results[i] = {'sentence': str_to_predict,
-                    'tokens_attributions': {tp[0]: tp[1] for tp in exp_},
-                    'label': t["label"]}
-    
+                           'tokens_attributions': {tp[0]: tp[1] for tp in exp_},
+                           'label': t["label"]}
+
     return lime_results
 
 
@@ -149,10 +156,10 @@ def run_int_grad(model, tokenizer, dataset, args):
 
     model_to_attr = {
         "bert-base-uncased": "bert",
-        "huawei-noah/TinyBERT_General_4L_312D": "bert",
+        "huawei-noah-TinyBERT_General_4L_312D": "bert",
         "distilbert-base-uncased": "distilbert",
         "distilbert_untrained": "distilbert",
-        "google/mobilebert-uncased": "mobilebert",
+        "google-mobilebert-uncased": "mobilebert",
     }
 
     model_wrapper = ModelWrapper(model, tokenizer)
@@ -175,7 +182,7 @@ def run_int_grad(model, tokenizer, dataset, args):
 
     # TODO return something of use
 
-    print(attributions)
+    # print(attributions)
     return attributions
 
 
@@ -283,7 +290,7 @@ def main():
         if args.debug:
             val_raw_dataset = [{key: value[i] for key, value in val_raw_dataset.items(
             )} for i in range(len(val_raw_dataset["sentence"]))]
-        lime_results = run_lime(model, tokenizer, val_raw_dataset, args)
+        lime_results = run_lime(model, tokenizer, val_raw_dataset, args.task, args)
         with open(f'explanation_results/{args.model_type}/{args.model_type}_{args.task}_lime.json', 'w') as file2:
             json.dump(lime_results, file2)
     if args.exp_type == "all" or args.exp_type == "grad":
