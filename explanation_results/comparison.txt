@@ -1,0 +1,180 @@
+Task: wnli, Explanation Type: lime
+Distilbert Cosine Similarity - AVG 0.36720, MEDIAN 0.40556, N 71
+Mobilebert Cosine Similarity - AVG 0.29948, MEDIAN 0.33827, N 71
+Tinybert Cosine Similarity - AVG 0.18218, MEDIAN 0.18460, N 71
+
+Task: wnli, Explanation Type: lime
+Distilbert L2 Distance - AVG 0.00504, MEDIAN 0.00501, N 71
+Mobilebert L2 Distance - AVG 0.39930, MEDIAN 0.42886, N 71
+Tinybert L2 Distance - AVG 0.00446, MEDIAN 0.00452, N 71
+
+Task: cola, Explanation Type: lime
+Distilbert Cosine Similarity - AVG 0.66538, MEDIAN 0.75116, N 1043
+Mobilebert Cosine Similarity - AVG -0.12906, MEDIAN -0.17123, N 1043
+Tinybert Cosine Similarity - AVG -0.00165, MEDIAN 0.00724, N 1043
+
+Task: cola, Explanation Type: lime
+Distilbert L2 Distance - AVG 0.32536, MEDIAN 0.30320, N 1043
+Mobilebert L2 Distance - AVG 0.49398, MEDIAN 0.48428, N 1043
+Tinybert L2 Distance - AVG 0.39247, MEDIAN 0.39302, N 1043
+
+Task: sst2, Explanation Type: lime
+Distilbert Cosine Similarity - AVG 0.84456, MEDIAN 0.87914, N 872
+Mobilebert Cosine Similarity - AVG 0.29014, MEDIAN 0.28826, N 872
+Tinybert Cosine Similarity - AVG 0.78587, MEDIAN 0.81834, N 872
+
+Task: sst2, Explanation Type: lime
+Distilbert L2 Distance - AVG 0.18568, MEDIAN 0.17713, N 872
+Mobilebert L2 Distance - AVG 0.40030, MEDIAN 0.34943, N 872
+Tinybert L2 Distance - AVG 0.24113, MEDIAN 0.22130, N 872
+
+Task: mrpc, Explanation Type: lime
+Distilbert Cosine Similarity - AVG 0.46115, MEDIAN 0.52038, N 408
+Mobilebert Cosine Similarity - AVG -0.01402, MEDIAN -0.00397, N 408
+Tinybert Cosine Similarity - AVG 0.47939, MEDIAN 0.52762, N 408
+
+Task: mrpc, Explanation Type: lime
+Distilbert L2 Distance - AVG 0.29525, MEDIAN 0.27745, N 408
+Mobilebert L2 Distance - AVG 0.33207, MEDIAN 0.34062, N 408
+Tinybert L2 Distance - AVG 0.26355, MEDIAN 0.26786, N 408
+
+Task: rte, Explanation Type: lime
+Distilbert Cosine Similarity - AVG -0.06060, MEDIAN -0.08352, N 277
+Mobilebert Cosine Similarity - AVG 0.06707, MEDIAN 0.08391, N 263
+Tinybert Cosine Similarity - AVG -0.01702, MEDIAN -0.01334, N 277
+
+Task: rte, Explanation Type: lime
+Distilbert L2 Distance - AVG 0.53592, MEDIAN 0.51764, N 277
+Mobilebert L2 Distance - AVG 719.23932, MEDIAN 43.79899, N 277
+Tinybert L2 Distance - AVG 0.13793, MEDIAN 0.12894, N 277
+
+Task: qnli, Explanation Type: lime
+Distilbert Cosine Similarity - AVG -0.01384, MEDIAN -0.01661, N 5457
+Mobilebert Cosine Similarity - AVG -0.00710, MEDIAN -0.00795, N 5457
+Tinybert Cosine Similarity - AVG -0.00928, MEDIAN -0.01300, N 5457
+
+Task: qnli, Explanation Type: lime
+Distilbert L2 Distance - AVG 1.11871, MEDIAN 1.08563, N 5463
+Mobilebert L2 Distance - AVG 2.35487, MEDIAN 0.51812, N 5463
+Tinybert L2 Distance - AVG 0.23532, MEDIAN 0.22503, N 5463
+
+Task: wnli, Explanation Type: shap
+Distilbert Cosine Similarity - AVG -0.20084, MEDIAN -0.19919, N 71
+Mobilebert Cosine Similarity - AVG 0.27976, MEDIAN 0.28834, N 71
+Tinybert Cosine Similarity - AVG -0.28289, MEDIAN -0.28409, N 71
+
+Task: wnli, Explanation Type: shap
+Distilbert L2 Distance - AVG 0.01736, MEDIAN 0.01641, N 71
+Mobilebert L2 Distance - AVG 4245.20622, MEDIAN 3947.38144, N 71
+Tinybert L2 Distance - AVG 0.01350, MEDIAN 0.01107, N 71
+
+Task: cola, Explanation Type: shap
+Distilbert Cosine Similarity - AVG 0.62479, MEDIAN 0.68563, N 1043
+Mobilebert Cosine Similarity - AVG -0.04824, MEDIAN -0.03455, N 1043
+Tinybert Cosine Similarity - AVG -0.20093, MEDIAN -0.25545, N 1043
+
+Task: cola, Explanation Type: shap
+Distilbert L2 Distance - AVG 1.06604, MEDIAN 1.01493, N 1043
+Mobilebert L2 Distance - AVG 318.13891, MEDIAN 40.06322, N 1043
+Tinybert L2 Distance - AVG 1.28555, MEDIAN 1.25582, N 1043
+
+Task: sst2, Explanation Type: shap
+Distilbert Cosine Similarity - AVG 0.85033, MEDIAN 0.87735, N 872
+Mobilebert Cosine Similarity - AVG 0.14685, MEDIAN 0.11789, N 872
+Tinybert Cosine Similarity - AVG 0.79600, MEDIAN 0.83537, N 872
+
+Task: sst2, Explanation Type: shap
+Distilbert L2 Distance - AVG 1.15079, MEDIAN 1.08322, N 872
+Mobilebert L2 Distance - AVG 13.56078, MEDIAN 2.26666, N 872
+Tinybert L2 Distance - AVG 1.38865, MEDIAN 1.33003, N 872
+
+Task: mrpc, Explanation Type: shap
+Distilbert Cosine Similarity - AVG -0.06219, MEDIAN -0.19819, N 408
+Mobilebert Cosine Similarity - AVG -0.15935, MEDIAN -0.25122, N 408
+Tinybert Cosine Similarity - AVG 0.09139, MEDIAN 0.07918, N 408
+
+Task: mrpc, Explanation Type: shap
+Distilbert L2 Distance - AVG 0.67000, MEDIAN 0.72024, N 408
+Mobilebert L2 Distance - AVG 1485.06836, MEDIAN 910.80553, N 408
+Tinybert L2 Distance - AVG 0.48607, MEDIAN 0.48262, N 408
+
+Task: rte, Explanation Type: shap
+Distilbert Cosine Similarity - AVG -0.22122, MEDIAN -0.26547, N 277
+Mobilebert Cosine Similarity - AVG -0.27774, MEDIAN -0.32950, N 277
+Tinybert Cosine Similarity - AVG -0.17086, MEDIAN -0.19136, N 277
+
+Task: rte, Explanation Type: shap
+Distilbert L2 Distance - AVG 0.31259, MEDIAN 0.30368, N 277
+Mobilebert L2 Distance - AVG 3083.41061, MEDIAN 2360.84657, N 277
+Tinybert L2 Distance - AVG 0.13727, MEDIAN 0.13186, N 277
+
+Task: qnli, Explanation Type: shap
+Distilbert Cosine Similarity - AVG 0.07484, MEDIAN 0.07983, N 5463
+Mobilebert Cosine Similarity - AVG -0.02606, MEDIAN -0.01352, N 5463
+Tinybert Cosine Similarity - AVG -0.00168, MEDIAN 0.00428, N 5463
+
+Task: qnli, Explanation Type: shap
+Distilbert L2 Distance - AVG 1.00035, MEDIAN 0.99180, N 5463
+Mobilebert L2 Distance - AVG 2988.52046, MEDIAN 34.08020, N 5463
+Tinybert L2 Distance - AVG 0.90334, MEDIAN 0.87324, N 5463
+
+Task: wnli, Explanation Type: int_grad
+Distilbert Cosine Similarity - AVG -0.07545, MEDIAN -0.06941, N 71
+Mobilebert Cosine Similarity - AVG -0.06648, MEDIAN -0.04443, N 51
+Tinybert Cosine Similarity - AVG -0.21427, MEDIAN -0.21842, N 71
+
+Task: wnli, Explanation Type: int_grad
+Distilbert L2 Distance - AVG 1.45932, MEDIAN 1.46247, N 71
+Mobilebert L2 Distance - AVG 1.44984, MEDIAN 1.44529, N 51
+Tinybert L2 Distance - AVG 1.55519, MEDIAN 1.56104, N 71
+
+Task: cola, Explanation Type: int_grad
+Distilbert Cosine Similarity - AVG 0.32326, MEDIAN 0.39410, N 1043
+Mobilebert Cosine Similarity - AVG -0.01820, MEDIAN -0.01274, N 1043
+Tinybert Cosine Similarity - AVG -0.11064, MEDIAN -0.09475, N 1043
+
+Task: cola, Explanation Type: int_grad
+Distilbert L2 Distance - AVG 1.10277, MEDIAN 1.10082, N 1043
+Mobilebert L2 Distance - AVG 1.39891, MEDIAN 1.42319, N 1043
+Tinybert L2 Distance - AVG 1.47104, MEDIAN 1.47970, N 1043
+
+Task: sst2, Explanation Type: int_grad
+Distilbert Cosine Similarity - AVG 0.41915, MEDIAN 0.49229, N 872
+Mobilebert Cosine Similarity - AVG 0.05343, MEDIAN 0.04599, N 872
+Tinybert Cosine Similarity - AVG 0.31510, MEDIAN 0.34823, N 872
+
+Task: sst2, Explanation Type: int_grad
+Distilbert L2 Distance - AVG 1.01866, MEDIAN 1.00768, N 872
+Mobilebert L2 Distance - AVG 1.36217, MEDIAN 1.38131, N 872
+Tinybert L2 Distance - AVG 1.12908, MEDIAN 1.14173, N 872
+
+Task: mrpc, Explanation Type: int_grad
+Distilbert Cosine Similarity - AVG 0.04510, MEDIAN 0.04202, N 408
+Mobilebert Cosine Similarity - AVG -0.00241, MEDIAN -0.01039, N 408
+Tinybert Cosine Similarity - AVG 0.02034, MEDIAN 0.01843, N 408
+
+Task: mrpc, Explanation Type: int_grad
+Distilbert L2 Distance - AVG 1.37584, MEDIAN 1.38418, N 408
+Mobilebert L2 Distance - AVG 1.41107, MEDIAN 1.42154, N 408
+Tinybert L2 Distance - AVG 1.39443, MEDIAN 1.40112, N 408
+
+Task: rte, Explanation Type: int_grad
+Distilbert Cosine Similarity - AVG 0.07450, MEDIAN 0.08372, N 277
+Mobilebert Cosine Similarity - AVG -0.03163, MEDIAN -0.03892, N 277
+Tinybert Cosine Similarity - AVG 0.10861, MEDIAN 0.12051, N 277
+
+Task: rte, Explanation Type: int_grad
+Distilbert L2 Distance - AVG 1.35111, MEDIAN 1.35372, N 277
+Mobilebert L2 Distance - AVG 1.42965, MEDIAN 1.44147, N 277
+Tinybert L2 Distance - AVG 1.31860, MEDIAN 1.32627, N 277
+
+Task: qnli, Explanation Type: int_grad
+Distilbert Cosine Similarity - AVG 0.18891, MEDIAN 0.19564, N 5463
+Mobilebert Cosine Similarity - AVG 0.06000, MEDIAN 0.05823, N 5463
+Tinybert Cosine Similarity - AVG 0.15274, MEDIAN 0.13766, N 5463
+
+Task: qnli, Explanation Type: int_grad
+Distilbert L2 Distance - AVG 1.26619, MEDIAN 1.26835, N 5463
+Mobilebert L2 Distance - AVG 1.36251, MEDIAN 1.37242, N 5463
+Tinybert L2 Distance - AVG 1.29398, MEDIAN 1.31327, N 5463
+
