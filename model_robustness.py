@@ -25,9 +25,19 @@ from train_and_eval import *
 import argparse
 
 
-glue_type = "cola"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
+import nltk          
+
+import ssl
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+nltk.download('averaged_perceptron_tagger')
     
 def tokenization(tokenzier, example):
     return tokenzier(example["text"], truncation=True, padding=True)
@@ -61,18 +71,19 @@ def perturb_inputs(inputs, tokenizer, augmenter):
     return augmented_inputs
     
     
-def eval_results_with_augmentation(model, dataloader, tokenizer, augmenter, metric):
+def eval_results_with_augmentation(model, dataloader, tokenizer, augmenter, metric, task, perturb=True):
     '''helper function to get evaluation results with augmentation'''
     for n, inputs in enumerate(tqdm(dataloader)):
         inputs = {k: v.to(device) for k, v in inputs.items()}
         # perturb inputs
-        augmented_inputs = perturb_inputs(inputs, tokenizer, augmenter)
+        if perturb:
+            inputs = perturb_inputs(inputs, tokenizer, augmenter)
         # get predictions
         with torch.no_grad():
-            outputs = model(**augmented_inputs)
-        predictions = outputs_to_predictions(outputs, glue_type)
+            outputs = model(**inputs)
+        predictions = outputs_to_predictions(outputs, task)
         # add evaluation sub-results
-        metric.add_batch(predictions=predictions, references=augmented_inputs["labels"])
+        metric.add_batch(predictions=predictions, references=inputs["labels"])
     # aggregate evaluation results
     charsub_scores_i = metric.compute()
     
@@ -85,14 +96,21 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     as well as robustness as model performance when input gets perturbed
     '''
     model.eval()
-
+    def blank():
+        pass
+    print("evaluating before perturbations...")
+    default_scores = defaultdict(list)
+    metric = e.load("glue", task) 
+    scores = eval_results_with_augmentation(model, dataloader, tokenizer, blank, metric, task, perturb=False) 
+    for key, val in scores.items():
+        default_scores[key].append(val)
     # robustness - character level - replace characters
     print("replace characters randomly...")
     charsub_scores = defaultdict(list)
     for _ in range(times):
         metric1 = e.load("glue", task)
         aug_charsub = nac.RandomCharAug(action='substitute', aug_char_min=1, aug_char_max=1, aug_word_p=0.1, candidates=list('abcdefghijklmnopqrstuvwxyz'))
-        charsub_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_charsub, metric1)
+        charsub_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_charsub, metric1, task)
         for key, val in charsub_scores_i.items():
             charsub_scores[key].append(val)
 
@@ -102,7 +120,7 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     for _ in range(times):
         metric2 = e.load("glue", task)
         aug_wordswap = naw.RandomWordAug(action="swap", aug_p=0.2)
-        wordswap_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordswap, metric2)
+        wordswap_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordswap, metric2, task)
         for key, val in wordswap_scores_i.items():
             wordswap_scores[key].append(val)
             
@@ -112,7 +130,7 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     for _ in range(times):
         metric3 = e.load("glue", task)
         aug_wordsub = naw.SynonymAug(aug_min=1, aug_max=1)
-        wordsub_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsub, metric3)
+        wordsub_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsub, metric3, task)
         for key, val in wordsub_scores_i.items():
             wordsub_scores[key].append(val)
     
@@ -122,10 +140,11 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     for _ in range(times):
         metric4 = e.load("glue", task)
         aug_wordsynn = naw.SynonymAug(aug_min=1, aug_max=1)
-        wordsynn_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsynn, metric4)
+        wordsynn_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsynn, metric4, task)
         for key, val in wordsynn_scores_i.items():
             wordsynn_scores[key].append(val)
     
+    print("performance before any augmentations", default_scores)
     print("performance after substituting characters", charsub_scores)
     print("average performance after substituting characters", {key: np.mean(lst) for key, lst in charsub_scores.items()})
     print("performance after swapping words", wordswap_scores)
@@ -135,15 +154,13 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     print("performance after swapping words", wordsynn_scores)
     print("average performance after substituting words with synonyms", {key: np.mean(lst) for key, lst in wordsynn_scores.items()})
     
-    return charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores
+    return charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores, default_scores
     
     
 def main():
     parser = argparse.ArgumentParser(description="Robustness evaluation for GLUE datasets")
     parser.add_argument("--model_path", type=str, help="Path to model to be evaluated")
     parser.add_argument("--is_teacher", action="store_true", help="Whether the loaded model is a teacher model")
-    parser.add_argument("--student", "-s", type=str, default="distilbert-base-uncased")
-    parser.add_argument("--teacher", "-t", type=str, default="bert-base-uncased")
     parser.add_argument("--task", "-t", default=None, type=str, help="GLUE task")
     parser.add_argument("--debug", action="store_true", help="Use validation subset and untrained model for debugging with faster speed")
     parser.add_argument("--perturb_times", default=10, type=int, help="Number of times to perturb an instance to check robustness")
@@ -174,6 +191,10 @@ def main():
             else:
                 model_type = match_student.group(1)
             num_labels = 3 if args.task.startswith("mnli") else 1 if args.task=="stsb" else 2
+            if model_type == "huawei-noah-TinyBERT_General_4L_312D":
+                model_type = "huawei-noah/TinyBERT_General_4L_312D"
+            if model_type == "google-mobilebert-uncased":
+                model_type = "google/mobilebert-uncased"
             model = AutoModelForSequenceClassification.from_pretrained(model_type, num_labels=num_labels)
             model.load_state_dict(torch.load(args.model_path))
             print(f"model loaded")
@@ -190,6 +211,20 @@ def main():
     print(f"loading validation data for task {args.task}")
     _, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, args.task)
 
+    def concat(e, p1, p2):
+        e["sentence"] = e[p1] + " " + e[p2]
+        return e
+
+    if args.task == "ax": 
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "premise", "hypothesis"))
+    elif args.task == "qnli":
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "question", "sentence"))
+    elif args.task == "qqp":
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "question1", "question2"))
+    elif args.task not in ["cola", "sst2"]:
+        val_raw_dataset = val_raw_dataset.map(lambda e: concat(e, "sentence1", "sentence2"))
+
+
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     val_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
     val_dataset = val_dataset.remove_columns(["token_type_ids"])
@@ -200,15 +235,17 @@ def main():
     print(f"Validation Data Size: {len(val_dataset)}")
     val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
 
-    charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores = robust_eval_model(model, val_dataloader, tokenizer, args.task, times=args.perturb_times)
+    charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores, default_scores = robust_eval_model(model, val_dataloader, tokenizer, args.task, times=args.perturb_times)
     
+    model_type = model_type.replace("/", "-")
+
     if not os.path.exists(f"model_robustness_results"):
         os.makedirs(f"model_robustness_results")
     if not os.path.exists(f"model_robustness_results/{model_type}"):
         os.makedirs(f"model_robustness_results/{model_type}")
     
     with open(f'model_robustness_results/{model_type}/{model_type}_{args.task}_robustness.json', 'w') as file:
-        json.dump({"charsub": charsub_scores, "wordswap": wordswap_scores, "wordsub": wordsub_scores, "wordsynn": wordsynn_scores}, file)
+        json.dump({"charsub": charsub_scores, "wordswap": wordswap_scores, "wordsub": wordsub_scores, "wordsynn": wordsynn_scores, "default_scores": default_scores}, file)
 
 
 if __name__ == "__main__":
