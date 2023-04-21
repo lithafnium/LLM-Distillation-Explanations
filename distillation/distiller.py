@@ -499,7 +499,7 @@ class CausalDistiller:
                 else:
                     token_ids, attn_mask, lm_labels = self.prepare_batch_clm(batch=(token_ids, lengths))
                     
-                interchange_mask, dual_interchange_mask = self.prepare_interchange_mask(
+                interchange_mask = self.prepare_interchange_mask(
                     lengths,
                     pred_mask
                 )
