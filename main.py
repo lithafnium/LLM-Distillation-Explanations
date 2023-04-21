@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     t = Trainer(
         lr=5e-5, 
-        batch_size=16,
+        batch_size=32,
         epochs=3,
         teacher_type=args.teacher,
         student_type=args.student,

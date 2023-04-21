@@ -57,7 +57,7 @@ def calc_lime(task, student):
         if not math.isnan(cs):
             n += 1
             total_cos_sim += cs
-        total_l2 += np.linalg.norm(teacher_attributions - student_attributions)
+            total_l2 += np.linalg.norm(teacher_attributions - student_attributions)
     
     print(total_cos_sim / n, total_l2 / len(baseline_shap_values))
 
