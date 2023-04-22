@@ -31,8 +31,7 @@ from tqdm import tqdm
 from grouped_batch_sampler import GroupedBatchSampler, create_lengths_groups
 from lm_seqs_dataset import LmSeqsDataset
 from transformers import get_linear_schedule_with_warmup
-from utils import logger
-
+from utils import get_activations
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
@@ -66,7 +65,6 @@ from transformers import (
     AutoTokenizer,
     AutoModelForMaskedLM,
 )
-from utils import *
 from datasets import load_dataset
 import wandb
 from models.modeling_distilbert import DistilBertForMaskedLM
@@ -94,30 +92,6 @@ class CausalDistiller:
         self.student = student
         self.teacher = teacher
         
-        # causal neuron mappings.
-        self.deserialized_variable_mappings = defaultdict(list)
-        def load_variable_names(m):
-            deserialized_variables = [] 
-            for variable in m:
-                deserialized_variables.append(deserialize_variable_name(variable))
-            return deserialized_variables
-        
-        # node mappings
-        # neuron mapping logic is taken from the paper's implementation, modified to fit our usecase
-        with open(params.neuron_mapping) as json_file:
-            logger.info(f"Loading neuron mapping {params.neuron_mapping}")
-            neuron_mapping_json = json.load(json_file)
-
-            for i in range(len(neuron_mapping_json["interchange_variable_mappings"])):
-                names = neuron_mapping_json["interchange_variable_mappings"][i]
-
-                t_deserialized_variables = load_variable_names(names["teacher_variable_names"])
-                s_deserialized_variables = load_variable_names(names["student_variable_names"])
-                self.deserialized_variable_mappings["teacher"].extend(t_deserialized_variables)
-                self.deserialized_variable_mappings["student"].extend(s_deserialized_variables)        
-
-        print(self.deserialized_variable_mappings)
-
         self.student_config = student.config
         self.vocab_size = student.config.vocab_size
 
@@ -462,13 +436,6 @@ class CausalDistiller:
     #     interchange_position = torch.tensor(interchange_position, dtype=torch.long).to(lengths.device, non_blocking=True)
     #     return interchange_position
 
-    def get_interchanged_variables_mapping(self, variable_names):
-        interchanged_variables_mapping = defaultdict(list)
-        for i, variable in enumerate(variable_names):
-            layer_index, head_index, activation_locations = variable
-            interchanged_variables_mapping[layer_index].append((i, head_index, activation_locations))
-
-        return interchanged_variables_mapping
     
     def train(self):
         """
@@ -549,12 +516,12 @@ class CausalDistiller:
         # preparing for causal distillation.
         # we randomly select the pool of neurons to interchange.
         
-        teacher_variable_names = random.choice(self.deserialized_variable_mappings["teacher"])
-        student_variable_names = random.choice(self.deserialized_variable_mappings["student"])
+        # teacher_variable_names = random.choice(self.deserialized_variable_mappings["teacher"])
+        # student_variable_names = random.choice(self.deserialized_variable_mappings["student"])
 
-        # get variables to interchange
-        teacher_interchanged_variables_mapping = self.get_interchanged_variables_mapping(teacher_variable_names)
-        student_interchanged_variables_mapping = self.get_interchanged_variables_mapping(student_variable_names)        
+        # # get variables to interchange
+        # teacher_interchanged_variables_mapping = self.get_interchanged_variables_mapping(teacher_variable_names)
+        # student_interchanged_variables_mapping = self.get_interchanged_variables_mapping(student_variable_names)        
 
         
         if self.mlm:
@@ -564,11 +531,11 @@ class CausalDistiller:
                     input_ids=input_ids, attention_mask=attention_mask
                 )  # (bs, seq_length, voc_size)
                 activations_teacher = get_activations(
-                    teacher_outputs,
-                    teacher_variable_names
+                    teacher_outputs                
                 )
             student_outputs = self.student(
                 input_ids=input_ids, attention_mask=attention_mask,
+                activations_teacher=activations_teacher
             )  # (bs, seq_length, voc_size)
         else:
             assert False # we are not supporting this branch!

@@ -307,6 +307,7 @@ class Transformer(nn.Module):
         interchanged_variables=None, 
         variable_names=None,
         interchange_mask=None,
+        activations_teacher=None
     ):  # docstyle-ignore
         """
         Parameters:
@@ -337,14 +338,17 @@ class Transformer(nn.Module):
             hidden_state = layer_outputs[-1]
             
             # we need to interchange!
-            if variable_names != None and variable_names != "embeddings" and i in variable_names:
-                assert interchanged_variables != None
-                for interchanged_variable in variable_names[i]:
-                    interchanged_activations = interchanged_variables[interchanged_variable[0]]
-                    start_index = interchanged_variable[1]*self.head_dimension + interchanged_variable[2].start
-                    stop_index = start_index + interchanged_variable[2].stop
-                    replacing_activations = interchanged_activations
-                    hidden_state[...,start_index:stop_index][interchange_mask] = replacing_activations
+            if activations_teacher != None:
+                print("HERE")
+                # DO SOMETHING HERE somethign like the below 
+            # if variable_names != None and variable_names != "embeddings" and i in variable_names:
+            #     assert interchanged_variables != None
+            #     for interchanged_variable in variable_names[i]:
+            #         interchanged_activations = interchanged_variables[interchanged_variable[0]]
+            #         start_index = interchanged_variable[1]*self.head_dimension + interchanged_variable[2].start
+            #         stop_index = start_index + interchanged_variable[2].stop
+            #         replacing_activations = interchanged_activations
+            #         hidden_state[...,start_index:stop_index][interchange_mask] = replacing_activations
 
             if output_attentions:
                 assert len(layer_outputs) == 2
@@ -543,6 +547,7 @@ class DistilBertModel(DistilBertPreTrainedModel):
         interchanged_variables=None, 
         variable_names=None,
         interchange_mask=None,
+        activations_teacher=None,
     ):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -582,6 +587,7 @@ class DistilBertModel(DistilBertPreTrainedModel):
             interchanged_variables=interchanged_variables,
             variable_names=variable_names,
             interchange_mask=interchange_mask,
+            activations_teacher=activations_teacher
         )
 
 
@@ -657,6 +663,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
         interchanged_variables=None, 
         variable_names=None,
         interchange_mask=None,
+        activations_teacher=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -677,6 +684,7 @@ class DistilBertForMaskedLM(DistilBertPreTrainedModel):
             interchanged_variables=interchanged_variables,
             variable_names=variable_names,
             interchange_mask=interchange_mask,
+            activations_teacher=activations_teacher
         )
         hidden_states = dlbrt_output[0]  # (bs, seq_length, dim)
         prediction_logits = self.vocab_transform(hidden_states)  # (bs, seq_length, dim)

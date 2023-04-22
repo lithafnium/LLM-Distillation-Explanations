@@ -66,30 +66,22 @@ def deserialize_variable_name(variable_name):
     return deserialized_variables
 
 def get_activations(
-        outputs, variable_names
+        outputs
     ):
     # we don't want embedding activations
-    if variable_names == "embeddings":
-        return None
+
+    hidden_states = outputs["hidden_states"]
 
     total_activations = []
+    # first tuple is embedding layer
+    # loop through all teacher layers 
+    for i in range(11):
+        # check if dimension sizes match between teacher and student
+        layer1 = hidden_states[i+1]
+        layer2 = hidden_states[i+2]
 
-    # get head_dimension: 
-    # should = 64 for default bert
-    head_dim = 64
-
-    for v in variable_names:
-        # hidden sate format: n tuple with embeddings + layer, each layer is another
-        # tuple of format ((batch_size, sequence_length, hidden_size))
-        # in this case, we want to extract the activation weights at each layer
-        layer_index, head_index, activation_locations = v
-        
-        hidden_states = outputs["hidden_states"]
-        layer = hidden_states[layer_index]
-        head_hidden_states = layer[:,:, (head_index * head_dim):((head_index+1) * head_dim)]
-
-        # 12 attention heads, each attention head is 64 nodes wide
-        total_activations.append(head_hidden_states[:,:,activation_locations])
+        average = (layer1 + layer2) / 2
+        total_activations.append(average) 
 
     return total_activations
 
