@@ -549,7 +549,6 @@ class BertEncoder(nn.Module):
         interchanged_variables=None, 
         variable_names=None,
         interchange_mask=None,
-        dual_interchange_mask=None,
     ):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
@@ -605,7 +604,7 @@ class BertEncoder(nn.Module):
                     interchanged_activations = interchanged_variables[interchanged_variable[0]]
                     start_index = interchanged_variable[1]*self.head_dimension + interchanged_variable[2].start
                     stop_index = start_index + interchanged_variable[2].stop
-                    replacing_activations = interchanged_activations[dual_interchange_mask]
+                    replacing_activations = interchanged_activations
                     hidden_states[...,start_index:stop_index][interchange_mask] = replacing_activations
             
             if use_cache:
@@ -927,7 +926,6 @@ class BertModel(BertPreTrainedModel):
         interchanged_variables=None, 
         variable_names=None,
         interchange_mask=None,
-        dual_interchange_mask=None,
     ):
         r"""
         encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
@@ -1032,7 +1030,6 @@ class BertModel(BertPreTrainedModel):
             interchanged_variables=interchanged_variables,
             variable_names=variable_names,
             interchange_mask=interchange_mask,
-            dual_interchange_mask=dual_interchange_mask,
         )
         sequence_output = encoder_outputs[0]
         pooled_output = self.pooler(sequence_output) if self.pooler is not None else None
@@ -1354,7 +1351,6 @@ class BertForMaskedLM(BertPreTrainedModel):
         interchanged_variables=None, 
         variable_names=None,
         interchange_mask=None,
-        dual_interchange_mask=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
@@ -1379,7 +1375,6 @@ class BertForMaskedLM(BertPreTrainedModel):
             interchanged_variables=interchanged_variables,
             variable_names=variable_names,
             interchange_mask=interchange_mask,
-            dual_interchange_mask=dual_interchange_mask,
         )
 
         sequence_output = outputs[0]
