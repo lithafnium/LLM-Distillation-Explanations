@@ -397,7 +397,7 @@ class CausalDistiller:
         self,
         lengths,
         pred_mask
-    ):        
+    ):         
         # params
         interchange_prop = self.interchange_prop
         interchange_max_token = self.interchange_max_token # if -1 then we don't restrict on this.
