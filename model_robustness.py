@@ -1,6 +1,7 @@
 import re
 import os
 import json
+import inspect
 
 from copy import deepcopy
 from transformers import BertForSequenceClassification, AutoModelForSequenceClassification, AutoTokenizer, AutoModel, DataCollatorWithPadding, DistilBertForSequenceClassification
@@ -16,20 +17,26 @@ from torch.utils.data import (
 )
 from tqdm import tqdm, trange
 import evaluate as e
+
 import nlpaug.augmenter.word as naw
 import nlpaug.augmenter.char as nac
+from pattern.en import conjugate, lexeme, tag
+import pattern.en
+
 
 from load_glue import *
-from train_and_eval import *
+# from train_and_eval import *
 
 import argparse
 
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-import nltk          
+# nltk.download('punkt')
+# nltk.download('wordnet')   
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+import nltk   
 
 import ssl
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 try:
     _create_unverified_https_context = ssl._create_unverified_context
@@ -38,9 +45,8 @@ except AttributeError:
 else:
     ssl._create_default_https_context = _create_unverified_https_context
 nltk.download('averaged_perceptron_tagger')
-    
-def tokenization(tokenzier, example):
-    return tokenzier(example["text"], truncation=True, padding=True)
+def tokenization(tokenizer, example):
+    return tokenizer(example["text"], truncation=True, padding=True)
    
    
 def outputs_to_predictions(outputs, glue_type):
@@ -52,6 +58,26 @@ def outputs_to_predictions(outputs, glue_type):
         predictions = logits[:, 0]
         
     return predictions
+
+
+# helper class for perturbations that change verb tense
+class VerbTenseAug:
+    def __init__(self, tokenizer):
+        self.description = "change verb tense"
+        self.tokenizer = tokenizer
+
+    def augment(self, text):
+        res = []
+        try:
+            word_tag = tag(text, tokenize=True, encoding='utf-8', tokenizer=self.tokenizer)
+        except RuntimeError:
+            word_tag = tag(text, tokenize=True, encoding='utf-8', tokenizer=self.tokenizer)
+        for word, pos in word_tag:
+            if 'VB' in pos:
+                res.append(np.random.choice(lexeme(word)))    
+            else:
+                res.append(word)
+        return ' '.join(res)
 
 
 def perturb_inputs(inputs, tokenizer, augmenter):
@@ -98,18 +124,29 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     model.eval()
     def blank():
         pass
-    print("evaluating before perturbations...")
+    print("before perturbations...")
     default_scores = defaultdict(list)
     metric = e.load("glue", task) 
     scores = eval_results_with_augmentation(model, dataloader, tokenizer, blank, metric, task, perturb=False) 
     for key, val in scores.items():
         default_scores[key].append(val)
+
+    # robsutness - word level - verb tense change
+    print("change verb tense...")
+    tensecg_scores = defaultdict(list)
+    for _ in range(times):
+        metric6 = e.load("glue", task)
+        aug_tensecg = VerbTenseAug(tokenizer)
+        tensecg_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_tensecg, metric6, task)
+        for key, val in tensecg_scores_i.items():
+            tensecg_scores[key].append(val)
+    
     # robustness - character level - replace characters
     print("replace characters randomly...")
     charsub_scores = defaultdict(list)
     for _ in range(times):
         metric1 = e.load("glue", task)
-        aug_charsub = nac.RandomCharAug(action='substitute', aug_char_min=1, aug_char_max=1, aug_word_p=0.1, candidates=list('abcdefghijklmnopqrstuvwxyz'))
+        aug_charsub = nac.random.RandomCharAug(action='substitute', aug_char_min=1, aug_char_max=1, aug_word_min=1, aug_word_max=1, candidates=list('abcdefghijklmnopqrstuvwxyz'))
         charsub_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_charsub, metric1, task)
         for key, val in charsub_scores_i.items():
             charsub_scores[key].append(val)
@@ -119,42 +156,59 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
     wordswap_scores = defaultdict(list)
     for _ in range(times):
         metric2 = e.load("glue", task)
-        aug_wordswap = naw.RandomWordAug(action="swap", aug_p=0.2)
+        aug_wordswap = naw.random.RandomWordAug(action="swap", aug_min=1, aug_max=1)
         wordswap_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordswap, metric2, task)
         for key, val in wordswap_scores_i.items():
             wordswap_scores[key].append(val)
-            
-    # robustness - word level - substitute word
-    print("replace words randomly...")
-    wordsub_scores = defaultdict(list)
-    for _ in range(times):
-        metric3 = e.load("glue", task)
-        aug_wordsub = naw.SynonymAug(aug_min=1, aug_max=1)
-        wordsub_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsub, metric3, task)
-        for key, val in wordsub_scores_i.items():
-            wordsub_scores[key].append(val)
     
     # robustness - word level - substitute word with synonym
     print("replace words with synonyms...")
     wordsynn_scores = defaultdict(list)
     for _ in range(times):
-        metric4 = e.load("glue", task)
-        aug_wordsynn = naw.SynonymAug(aug_min=1, aug_max=1)
-        wordsynn_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsynn, metric4, task)
+        metric3 = e.load("glue", task)
+        aug_wordsynn = naw.synonym.SynonymAug(aug_min=1, aug_max=1)
+        wordsynn_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_wordsynn, metric3, task)
         for key, val in wordsynn_scores_i.items():
             wordsynn_scores[key].append(val)
+
+    # robustness - character level - keyboard typo
+    print("replace characters with possible keyboard error")
+    kberr_scores = defaultdict(list)
+    for _ in range(times):
+        metric4 = e.load("glue", task)
+        aug_kberr = nac.keyboard.KeyboardAug(aug_word_p=1, aug_char_min=1, aug_char_max=1)
+        kberr_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_kberr, metric4, task)
+        for key, val in kberr_scores_i.items():
+            kberr_scores[key].append(val)
+
+    # robustness - character / word level - spelling mistake
+    print("replace words with their spelling-mistake versions")
+    sperr_scores = defaultdict(list)
+    for _ in range(times):
+        metric5 = e.load("glue", task)
+        aug_sperr = naw.spelling.SpellingAug(dict_path='./utils/spelling_en.txt', aug_min=1, aug_max=1)
+        sperr_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_sperr, metric5, task)
+        for key, val in sperr_scores_i.items():
+            sperr_scores[key].append(val)
     
-    print("performance before any augmentations", default_scores)
+    
+    
+    print("performance before any augmentation", default_scores)
     print("performance after substituting characters", charsub_scores)
     print("average performance after substituting characters", {key: np.mean(lst) for key, lst in charsub_scores.items()})
     print("performance after swapping words", wordswap_scores)
     print("average performance after swapping words", {key: np.mean(lst) for key, lst in wordswap_scores.items()})
-    print("performance after swapping words", wordsub_scores)
-    print("average performance after substituting words", {key: np.mean(lst) for key, lst in wordsub_scores.items()})
-    print("performance after swapping words", wordsynn_scores)
+    print("performance after substituting words with synonyms", wordsynn_scores)
     print("average performance after substituting words with synonyms", {key: np.mean(lst) for key, lst in wordsynn_scores.items()})
     
-    return charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores, default_scores
+    print("performance after substituting characters with keyboard typo", kberr_scores)
+    print("average performance after substituting characters with keyboard typo", {key: np.mean(lst) for key, lst in kberr_scores.items()})
+    print("performance after substituting words with their spelling-mistake versions", sperr_scores)
+    print("average performance after substituting words with their spelling-mistake versions", {key: np.mean(lst) for key, lst in sperr_scores.items()})
+    print("performance after changing verb tenses", tensecg_scores)
+    print("average performance after changing verb tenses", {key: np.mean(lst) for key, lst in tensecg_scores.items()})
+
+    return default_scores, charsub_scores, wordswap_scores, wordsynn_scores, kberr_scores, sperr_scores, tensecg_scores
     
     
 def main():
@@ -230,22 +284,23 @@ def main():
     val_dataset = val_dataset.remove_columns(["token_type_ids"])
     
     if args.debug:
-        val_dataset = torch.utils.data.Subset(val_dataset, range(16))
-        val_raw_dataset = val_raw_dataset[:16]
+        val_dataset = torch.utils.data.Subset(val_dataset, range(4))
+        val_raw_dataset = val_raw_dataset[:4]
+        print(val_raw_dataset)
     print(f"Validation Data Size: {len(val_dataset)}")
     val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
 
-    charsub_scores, wordswap_scores, wordsub_scores, wordsynn_scores, default_scores = robust_eval_model(model, val_dataloader, tokenizer, args.task, times=args.perturb_times)
+    default_scores, charsub_scores, wordswap_scores, wordsynn_scores, kberr_scores, sperr_scores, tensecg_scores  = robust_eval_model(model, val_dataloader, tokenizer, args.task, times=args.perturb_times)
     
     model_type = model_type.replace("/", "-")
 
-    if not os.path.exists(f"model_robustness_results"):
-        os.makedirs(f"model_robustness_results")
-    if not os.path.exists(f"model_robustness_results/{model_type}"):
-        os.makedirs(f"model_robustness_results/{model_type}")
+    if not os.path.exists(f"model_robustness_results_final"):
+        os.makedirs(f"model_robustness_results_final")
+    if not os.path.exists(f"model_robustness_results_final/{model_type}"):
+        os.makedirs(f"model_robustness_results_final/{model_type}")
     
-    with open(f'model_robustness_results/{model_type}/{model_type}_{args.task}_robustness.json', 'w') as file:
-        json.dump({"charsub": charsub_scores, "wordswap": wordswap_scores, "wordsub": wordsub_scores, "wordsynn": wordsynn_scores, "default_scores": default_scores}, file)
+    with open(f'model_robustness_results_final/{model_type}/{model_type}_{args.task}_robustness.json', 'w') as file:
+        json.dump({"default": default_scores, "charsub": charsub_scores, "wordswap": wordswap_scores, "wordsynn": wordsynn_scores, "kberr": kberr_scores, "sperr": sperr_scores, "tensecg": tensecg_scores}, file)
 
 
 if __name__ == "__main__":
