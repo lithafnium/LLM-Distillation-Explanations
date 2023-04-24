@@ -65,7 +65,7 @@ def deserialize_variable_name(variable_name):
 
     return deserialized_variables
 
-def get_activations(
+def compute_student_activations(
         outputs
     ):
     # we don't want embedding activations
@@ -74,12 +74,10 @@ def get_activations(
 
     total_activations = []
     # first tuple is embedding layer
-    # loop through all teacher layers 
-    for i in range(11):
-        # check if dimension sizes match between teacher and student
-        layer1 = hidden_states[i+1]
-        layer2 = hidden_states[i+2]
-
+    # loop through every other teacher layer
+    for i in range(1, 13, 2):
+        # get 2 consecutive layers and take the average
+        layer1, layer2 = hidden_states[i], hidden_states[i + 1]
         average = (layer1 + layer2) / 2
         total_activations.append(average) 
 
