@@ -68,16 +68,24 @@ class VerbTenseAug:
 
     def augment(self, text):
         res = []
-        try:
-            word_tag = tag(text, tokenize=True, encoding='utf-8', tokenizer=self.tokenizer)
-        except RuntimeError:
-            word_tag = tag(text, tokenize=True, encoding='utf-8', tokenizer=self.tokenizer)
+        while True:  # hard code to avoid generator error that happens after python 3.6 for pattern.en
+            try:
+                word_tag = tag(text, tokenize=True, encoding='utf-8', tokenizer=self.tokenizer)
+                break
+            except RuntimeError:
+                pass
         for word, pos in word_tag:
             if 'VB' in pos:
-                res.append(np.random.choice(lexeme(word)))    
+                while True:  # hard code to avoid generator error that happens after python 3.6 for pattern.en
+                    try:
+                        conju_candidates = lexeme(word)
+                        break
+                    except RuntimeError:
+                        pass
+                res.append(np.random.choice(conju_candidates))    
             else:
                 res.append(word)
-        return ' '.join(res)
+        return [' '.join(res)]
 
 
 def perturb_inputs(inputs, tokenizer, augmenter):
@@ -190,7 +198,6 @@ def robust_eval_model(model, dataloader, tokenizer, task, times=10):
         sperr_scores_i = eval_results_with_augmentation(model, dataloader, tokenizer, aug_sperr, metric5, task)
         for key, val in sperr_scores_i.items():
             sperr_scores[key].append(val)
-    
     
     
     print("performance before any augmentation", default_scores)
