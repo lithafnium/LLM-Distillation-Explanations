@@ -20,7 +20,7 @@ import logging
 import os
 import socket
 
-import git
+# import git
 import numpy as np
 import torch
 
@@ -79,24 +79,25 @@ def compute_student_activations(
         # get 2 consecutive layers and take the average
         layer1, layer2 = hidden_states[i], hidden_states[i + 1]
         average = (layer1 + layer2) / 2
-        total_activations.append(average) 
+        total_activations.append(average.detach().cpu().numpy()) 
 
-    return total_activations
+    # print(np.array(total_activations).shape)
+    return torch.tensor(np.array(total_activations))
 
 
-def git_log(folder_path: str):
-    """
-    Log commit info.
-    """
-    repo = git.Repo(search_parent_directories=True)
-    repo_infos = {
-        "repo_id": str(repo),
-        "repo_sha": str(repo.head.object.hexsha),
-        "repo_branch": str(repo.active_branch),
-    }
+# def git_log(folder_path: str):
+#     """
+#     Log commit info.
+#     """
+#     repo = git.Repo(search_parent_directories=True)
+#     repo_infos = {
+#         "repo_id": str(repo),
+#         "repo_sha": str(repo.head.object.hexsha),
+#         "repo_branch": str(repo.active_branch),
+#     }
 
-    with open(os.path.join(folder_path, "git_log.json"), "w") as f:
-        json.dump(repo_infos, f, indent=4)
+#     with open(os.path.join(folder_path, "git_log.json"), "w") as f:
+#         json.dump(repo_infos, f, indent=4)
 
 
 def init_gpu_params(params):

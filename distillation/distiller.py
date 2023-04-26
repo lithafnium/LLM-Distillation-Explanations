@@ -31,11 +31,11 @@ from tqdm import tqdm
 from grouped_batch_sampler import GroupedBatchSampler, create_lengths_groups
 from lm_seqs_dataset import LmSeqsDataset
 from transformers import get_linear_schedule_with_warmup
-from utils import get_activations
-try:
-    from torch.utils.tensorboard import SummaryWriter
-except ImportError:
-    from tensorboardX import SummaryWriter
+from utils import compute_student_activations, logger
+# try:
+#     from torch.utils.tensorboard import SummaryWriter
+# except ImportError:
+#     from tensorboardX import SummaryWriter
 
 import argparse
 import json
@@ -47,7 +47,7 @@ import random
 import numpy as np
 import torch
 
-from distiller import Distiller
+# from distiller import Distiller
 from lm_seqs_dataset import LmSeqsDataset
 from transformers import (
     AutoConfig,
@@ -69,19 +69,19 @@ from datasets import load_dataset
 import wandb
 from models.modeling_distilbert import DistilBertForMaskedLM
 
-class CausalDistiller:
+class Distiller:
     def __init__(
         self, params: dict, dataset: LmSeqsDataset, 
         token_probs: torch.tensor, student: nn.Module, teacher: nn.Module
     ):
-        if params.is_wandb:
-            run = wandb.init(
-                project="Causal-BERT-Distillation", 
-                entity="wuzhengx",
-                name=params.run_name,
-            )
-            wandb.config.update(params)
-        self.is_wandb = params.is_wandb
+        # if params.is_wandb:
+        #     run = wandb.init(
+        #         project="Causal-BERT-Distillation", 
+        #         entity="wuzhengx",
+        #         name=params.run_name,
+        #     )
+        #     wandb.config.update(params)
+        # self.is_wandb = params.is_wandb
         
         logger.info("Initializing Distiller")
         self.params = params
@@ -94,9 +94,9 @@ class CausalDistiller:
         
         self.student_config = student.config
         self.vocab_size = student.config.vocab_size
-
+        print(params.local_rank)
         # overwrite slightly on this.
-        if params.local_rank == -1:
+        if params.local_rank == -1 or params.local_rank == 0:
             sampler = RandomSampler(dataset)
         else:
             sampler = DistributedSampler(dataset)
@@ -123,8 +123,6 @@ class CausalDistiller:
         self.alpha_clm = params.alpha_clm
         self.alpha_mse = params.alpha_mse
         self.alpha_cos = params.alpha_cos
-        self.alpha_causal_ce = params.alpha_causal_ce
-        self.alpha_causal_cos = params.alpha_causal_cos
 
         self.mlm = params.mlm
         if self.mlm:
@@ -140,15 +138,8 @@ class CausalDistiller:
                 self.token_probs = self.token_probs.half()
         else:
             logger.info("Using CLM loss for LM step.")
-
-        self.interchange_mlm = params.interchange_mlm
-        self.interchange_prop = params.interchange_prop
-        self.interchange_max_token = params.interchange_max_token # if -1 then we don't restrict on this.
-        self.interchange_masked_token_only = params.interchange_masked_token_only
-        self.interchange_consecutive_only = params.interchange_consecutive_only
-        self.data_augment = params.data_augment
         
-        self.epoch = 0
+        self.epoch = 1
         self.n_iter = 0
         self.n_total_iter = 0
         self.n_sequences_epoch = 0
@@ -162,9 +153,6 @@ class CausalDistiller:
         if self.alpha_cos > 0.0:
             self.last_loss_cos = 0
 
-        self.last_loss_causal_ce = 0
-        self.last_teacher_interchange_efficacy = 0
-        self.last_student_interchange_efficacy = 0
         self.last_log = 0
 
         self.ce_loss_fct = nn.KLDivLoss(reduction="batchmean")
@@ -447,7 +435,7 @@ class CausalDistiller:
         self.student.train()
         self.teacher.eval()
 
-        for _ in range(self.params.n_epoch):
+        for _ in range(1, self.params.n_epoch):
             if self.is_master:
                 logger.info(f"--- Starting epoch {self.epoch}/{self.params.n_epoch-1}")
 
@@ -465,24 +453,17 @@ class CausalDistiller:
                     )
                 else:
                     token_ids, attn_mask, lm_labels = self.prepare_batch_clm(batch=(token_ids, lengths))
-                    
-                interchange_mask = self.prepare_interchange_mask(
-                    lengths,
-                    pred_mask
-                )
 
                 self.step(
                     input_ids=token_ids, 
                     attention_mask=attn_mask, 
                     lm_labels=lm_labels,
-                    interchange_mask=interchange_mask, 
                 )
                 iter_bar.update()
                 iter_bar.set_postfix(
                     {
                         "Last_loss": f"{self.last_loss:.2f}", 
                          "Avg_cum_loss": f"{self.total_loss_epoch/self.n_iter:.2f}", 
-                         "Last_cf_loss": f"{self.last_loss_causal_ce:.2f}", 
                     }
                 )
             iter_bar.close()
@@ -500,7 +481,6 @@ class CausalDistiller:
         self, input_ids: torch.tensor, 
         attention_mask: torch.tensor, 
         lm_labels: torch.tensor,
-        interchange_mask: torch.tensor,
         skip_update_iter=False,
     ):
         """
@@ -530,12 +510,13 @@ class CausalDistiller:
                 teacher_outputs = self.teacher(
                     input_ids=input_ids, attention_mask=attention_mask
                 )  # (bs, seq_length, voc_size)
-                activations_teacher = get_activations(
+                activations_teacher = compute_student_activations(
                     teacher_outputs                
                 )
+                # activations_teacher.to(torch.device("cuda"))
             student_outputs = self.student(
                 input_ids=input_ids, attention_mask=attention_mask,
-                activations_teacher=activations_teacher
+                activations=activations_teacher
             )  # (bs, seq_length, voc_size)
         else:
             assert False # we are not supporting this branch!
@@ -670,7 +651,6 @@ class CausalDistiller:
         in the same magnitude.
         """
         if self.n_total_iter % self.params.log_interval == 0:
-            self.log_tensorboard()
             self.last_log = time.time()
 
     def log_tensorboard(self):
@@ -680,8 +660,8 @@ class CausalDistiller:
         if not self.is_master:
             return
         
-        if not self.is_wandb:
-            return
+        # if not self.is_wandb:
+        #     return
 
         wandb.log(
             {
@@ -712,14 +692,6 @@ class CausalDistiller:
                 {"train/loss_cos": self.last_loss_cos}, 
                 step=self.n_total_iter
             )
-
-        wandb.log(
-            {
-                "train/loss_causal_ce": self.last_loss_causal_ce,
-                "train/loss_causal_cos": self.last_loss_causal_cos,
-            }, 
-            step=self.n_total_iter
-        )
         
         wandb.log(
             {
@@ -739,13 +711,13 @@ class CausalDistiller:
 
         if self.is_master:
             self.save_checkpoint(checkpoint_name=f"model_epoch_{self.epoch}.pth")
-            if self.is_wandb:
-                wandb.log(
-                    {
-                        "epoch/loss": self.total_loss_epoch / self.n_iter, 
-                        'epoch': self.epoch
-                    }
-                )
+            # if self.is_wandb:
+            #     wandb.log(
+            #         {
+            #             "epoch/loss": self.total_loss_epoch / self.n_iter, 
+            #             'epoch': self.epoch
+            #         }
+            #     )
 
         self.epoch += 1
         self.n_sequences_epoch = 0

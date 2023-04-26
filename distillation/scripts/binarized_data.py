@@ -66,7 +66,8 @@ def main():
     if args.tokenizer_type == "bert":
         tokenizer = BertTokenizer.from_pretrained(
             args.tokenizer_name,
-            cache_dir=args.cache_dir
+            cache_dir=args.cache_dir,
+            use_fast=True
         )
         bos = tokenizer.special_tokens_map["cls_token"]  # `[CLS]`
         sep = tokenizer.special_tokens_map["sep_token"]  # `[SEP]`

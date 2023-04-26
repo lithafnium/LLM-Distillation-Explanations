@@ -14,6 +14,7 @@ from tqdm import tqdm
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, DataCollatorWithPadding
 
 from load_glue import *
+from load_glue import train_and_eval_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -278,27 +279,27 @@ def main():
 
     if not os.path.exists(f"explanation_results"):
         os.makedirs(f"explanation_results")
-    if not os.path.exists(f"explanation_results/{args.model_type}"):
+    if not os.path.exists(f"explanation_results/distillation/{args.model_type}"):
         os.makedirs(f"explanation_results/{args.model_type}")
 
     if args.exp_type == "all" or args.exp_type == "shap":
         shap_results = run_shap(
             model, tokenizer, val_raw_dataset, args.task, args)
-        with open(f'explanation_results/{args.model_type}/{args.model_type}_{args.task}_shap.json', 'w') as file1:
+        with open(f'explanation_results/distillation/{args.model_type}/{args.model_type}_{args.task}_shap.json', 'w') as file1:
             json.dump(shap_results, file1)
     if args.exp_type == "all" or args.exp_type == "lime":
         if args.debug:
             val_raw_dataset = [{key: value[i] for key, value in val_raw_dataset.items(
             )} for i in range(len(val_raw_dataset["sentence"]))]
         lime_results = run_lime(model, tokenizer, val_raw_dataset, args.task, args)
-        with open(f'explanation_results/{args.model_type}/{args.model_type}_{args.task}_lime.json', 'w') as file2:
+        with open(f'explanation_results/distillation/{args.model_type}/{args.model_type}_{args.task}_lime.json', 'w') as file2:
             json.dump(lime_results, file2)
     if args.exp_type == "all" or args.exp_type == "grad":
         if args.debug:
             val_raw_dataset = [{key: value[i] for key, value in val_raw_dataset.items(
             )} for i in range(len(val_raw_dataset["sentence"]))]
         int_grad_results = run_int_grad(model, tokenizer, val_raw_dataset, args)
-        with open(f'explanation_results/{args.model_type}/{args.model_type}_{args.task}_int_grad.json', 'w') as file3:
+        with open(f'explanation_results/distillation/{args.model_type}/{args.model_type}_{args.task}_int_grad.json', 'w') as file3:
             json.dump(int_grad_results, file3)
 
 

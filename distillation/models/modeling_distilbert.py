@@ -27,7 +27,7 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from transformers.activations import gelu
-from transformers.deepspeed import is_deepspeed_zero3_enabled
+# from transformers.deepspeed import is_deepspeed_zero3_enabled
 from transformers.file_utils import (
     add_code_sample_docstrings,
     add_start_docstrings,
@@ -73,14 +73,14 @@ DISTILBERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
 # UTILS AND BUILDING BLOCKS OF THE ARCHITECTURE #
 
 def create_sinusoidal_embeddings(n_pos, dim, out):
-    if is_deepspeed_zero3_enabled():
-        import deepspeed
+    # if is_deepspeed_zero3_enabled():
+    #     import deepspeed
 
-        with deepspeed.zero.GatheredParameters(out, modifier_rank=0):
-            if torch.distributed.get_rank() == 0:
-                _create_sinusoidal_embeddings(n_pos=n_pos, dim=dim, out=out)
-    else:
-        _create_sinusoidal_embeddings(n_pos=n_pos, dim=dim, out=out)
+    #     with deepspeed.zero.GatheredParameters(out, modifier_rank=0):
+    #         if torch.distributed.get_rank() == 0:
+    #             _create_sinusoidal_embeddings(n_pos=n_pos, dim=dim, out=out)
+    # else:
+    _create_sinusoidal_embeddings(n_pos=n_pos, dim=dim, out=out)
 
 
 def _create_sinusoidal_embeddings(n_pos, dim, out):
@@ -325,7 +325,6 @@ class Transformer(nn.Module):
         """
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
-
         hidden_state = x
         for i, layer_module in enumerate(self.layer):
             if output_hidden_states:
@@ -339,7 +338,14 @@ class Transformer(nn.Module):
             
             # we need to interchange!
             if activations != None:
-                hidden_state[interchange_mask] = activations
+                layer_activations = activations[i]
+                hidden_state[:,:,:] = layer_activations[:, :, :]
+                # hidden_state.to(torch.device("cuda"))
+
+                # print(hidden_state.size())
+                # # print(np.array(activations).shape)
+                # input()
+                # hidden_state[interchange_mask] = activations
                 # print("HERE")
                 # DO SOMETHING HERE somethign like the below 
             # if variable_names != None and variable_names != "embeddings" and i in variable_names:

@@ -41,7 +41,9 @@ from transformers import (
     RobertaForMaskedLM,
     RobertaTokenizer,
 )
-from utils import git_log, init_gpu_params, logger, set_seed
+from utils import init_gpu_params, logger, set_seed
+
+from models.modeling_distilbert import DistilBertForMaskedLM # we need to customize it a little.
 
 
 MODEL_CLASSES = {
@@ -224,25 +226,24 @@ def main():
     # ARGS #
     init_gpu_params(args)
     set_seed(args)
-    if args.is_master:
-        if os.path.exists(args.dump_path):
-            if not args.force:
-                raise ValueError(
-                    f"Serialization dir {args.dump_path} already exists, but you have not precised wheter to overwrite"
-                    " itUse `--force` if you want to overwrite it"
-                )
-            else:
-                shutil.rmtree(args.dump_path)
+    # if args.is_master:
+    #     # if os.path.exists(args.dump_path):
+    #     #     if not args.force:
+    #     #         raise ValueError(
+    #     #             f"Serialization dir {args.dump_path} already exists, but you have not precised wheter to overwrite"
+    #     #             " itUse `--force` if you want to overwrite it"
+    #     #         )
+    #     #     else:
+    #     #         shutil.rmtree(args.dump_path)
 
-        if not os.path.exists(args.dump_path):
-            os.makedirs(args.dump_path)
-        logger.info(f"Experiment will be dumped and logged in {args.dump_path}")
+    #     if not os.path.exists(args.dump_path):
+    #         os.makedirs(args.dump_path)
+    #     logger.info(f"Experiment will be dumped and logged in {args.dump_path}")
 
-        # SAVE PARAMS #
-        logger.info(f"Param: {args}")
-        with open(os.path.join(args.dump_path, "parameters.json"), "w") as f:
-            json.dump(vars(args), f, indent=4)
-        git_log(args.dump_path)
+    #     # SAVE PARAMS #
+    #     logger.info(f"Param: {args}")
+    #     with open(os.path.join(args.dump_path, "parameters.json"), "w") as f:
+    #         json.dump(vars(args), f, indent=4)
 
     student_config_class, student_model_class, _ = MODEL_CLASSES[args.student_type]
     teacher_config_class, teacher_model_class, teacher_tokenizer_class = MODEL_CLASSES[args.teacher_type]
@@ -282,11 +283,12 @@ def main():
     stu_architecture_config = student_config_class.from_pretrained(args.student_config)
     stu_architecture_config.output_hidden_states = True
 
-    if args.student_pretrained_weights is not None:
-        logger.info(f"Loading pretrained weights from {args.student_pretrained_weights}")
-        student = student_model_class.from_pretrained(args.student_pretrained_weights, config=stu_architecture_config)
-    else:
-        student = student_model_class(stu_architecture_config)
+    student = student_model_class.from_pretrained("results/model_epoch_0.pth", config=stu_architecture_config)
+    # if args.student_pretrained_weights is not None:
+    #     logger.info(f"Loading pretrained weights from {args.student_pretrained_weights}")
+    #     student = student_model_class.from_pretrained(args.student_pretrained_weights, config=stu_architecture_config)
+    # else:
+    #     student = student_model_class(stu_architecture_config)
 
     if args.n_gpu > 0:
         student.to(f"cuda:{args.local_rank}")

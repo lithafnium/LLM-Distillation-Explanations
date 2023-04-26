@@ -107,14 +107,20 @@ def main():
     assert task in GLUE_CONFIGS
 
     model = DistilledModel(
-        "./results/s_distilbert_t_bert_data_wikitext_dataset_seed_42_mlm_True_ce_0.25_mlm_0.25_cos_0.25_causal-ce_0.25_causal-cos_0.25_nm_single_middle_layer_6_crossway_False_int-prop_0.3_consec-token_True_masked-token_False_max-int-token_-1_eff-bs_240",
+        "./distillation/results1",
         task=task)
     
     model.to(device)
     tokenizer = AutoTokenizer.from_pretrained(teacher)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    train_dataset, val_dataset, _, _, _, _ = load_glue_dataset(tokenizer, task)
 
-    train_dataset, val_dataset, val_raw_dataset = train_and_eval_split(tokenizer, task)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    train_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
+    train_dataset = train_dataset.remove_columns(["token_type_ids"])
+
+    val_dataset.set_format(type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "labels"])
+    val_dataset = val_dataset.remove_columns(["token_type_ids"])
+    print(train_dataset, val_dataset)
 
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=4, collate_fn=data_collator)
     val_dataloader = DataLoader(val_dataset, batch_size=4, collate_fn=data_collator)
