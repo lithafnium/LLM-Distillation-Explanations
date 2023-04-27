@@ -17,6 +17,23 @@ from load_glue import train_and_eval_split
 import argparse
 
 
+from transformers import (
+    BertConfig,
+    BertForMaskedLM,
+    BertTokenizer,
+    DistilBertConfig,
+    DistilBertForSequenceClassification,
+    DistilBertTokenizer,
+    GPT2Config,
+    GPT2LMHeadModel,
+    GPT2Tokenizer,
+    RobertaConfig,
+    RobertaForMaskedLM,
+    RobertaTokenizer,
+)
+
+# from distillation.models.modeling_distilbert import DistilBertForMaskedLM
+
 NUM_EPOCHS = 3
 glue_type = "cola"
 
@@ -114,10 +131,10 @@ class Trainer:
         if self.train_teacher:
             print("training teacher...")
             teacher_name = self.teacher_type.replace("/", "-")
-            teacher = self.train(teacher, train_dataloader, save_path=f"models/teacher_{teacher_name}_{self.task}.pt")
+            teacher = self.train(teacher, train_dataloader, save_path=f"models/distillation/teacher_{teacher_name}_{self.task}.pt")
 
         print("loading student type", self.student_type)
-        student = AutoModelForSequenceClassification.from_pretrained(self.student_type, num_labels=num_labels)
+        student = DistilBertForSequenceClassification.from_pretrained("./distillation/results", num_labels=num_labels)
         student.to(device)
 
         train_dataset = train_dataset.remove_columns(["token_type_ids"])
@@ -126,7 +143,7 @@ class Trainer:
         if self.train_student:
             print("training student...")
             student_name = self.student_type.replace("/", "-")
-            student = self.train(student, train_dataloader, save_path=f"models/student_{student_name}_{self.task}.pt")
+            student = self.train(student, train_dataloader, save_path=f"models/distillation/student_{student_name}_{self.task}.pt")
 
         self.evaluate(teacher, val_dataloader, self.task)
 

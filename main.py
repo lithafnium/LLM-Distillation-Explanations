@@ -9,7 +9,7 @@ if __name__ == "__main__":
     parser.add_argument("--teacher", "-t", type=str, default="bert-base-uncased")
     parser.add_argument("--train_teacher", "-tt", action="store_true")
     parser.add_argument("--train_student", "-ts", action="store_true")
-    parser.add_argument("--task", type=str, default="sst2")
+    parser.add_argument("--task", type=str, default="cola")
 
     args = parser.parse_args() 
 
